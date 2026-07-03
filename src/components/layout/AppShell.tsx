@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 const navItems = [
   { to: '/game', label: '记分' },
+  { to: '/validator', label: '校验' },
   { to: '/history', label: '历史' },
   { to: '/setup', label: '设置' },
 ];
@@ -24,7 +25,7 @@ export function AppShell() {
         className="sticky bottom-0 border-t border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80"
         aria-label="主导航"
       >
-        <ul className="grid grid-cols-3">
+        <ul className="grid grid-cols-4">
           {navItems.map((item) => (
             <li key={item.to}>
               <NavLink
