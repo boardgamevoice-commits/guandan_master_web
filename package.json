@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "description": "掼蛋大师 Web 端 — 线下掼蛋记分与规则辅助工具",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

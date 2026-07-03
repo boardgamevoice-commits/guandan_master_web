@@ -5,14 +5,29 @@
 ## 文档
 
 - [Web 端 PRD](./docs/PRD-Web.md)
+- [Web 端 SDD](./docs/SDD-Web.md)
 - iOS PRD V1.2 为功能对齐基准
 
 ## 技术栈
 
 - React 19 + TypeScript
-- Vite
-- Tailwind CSS
+- Vite 7
+- Tailwind CSS v4
 - Vitest
+- **Node.js 24 LTS**（本地与 CI 统一，见 `.nvmrc`）
+
+## 环境要求
+
+```bash
+node -v   # >= 24.0.0
+npm -v    # >= 11.0.0
+```
+
+使用 nvm：
+
+```bash
+nvm use    # 读取 .nvmrc → Node 24
+```
 
 ## 部署
 

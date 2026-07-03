@@ -183,6 +183,7 @@ Web 版延续 iOS 核心定位：**本地优先、界面直观、零广告、零
 | 国际化 | V1 简体中文；文案抽离为 i18n 结构预留 |
 | SEO | 静态 meta、Open Graph；标题「掼蛋大师 — 线下掼蛋记分助手」 |
 | 部署 | push 至 `main` 分支自动触发 GitHub Actions 构建并发布 Pages |
+| 运行时 | Node.js 24 LTS（本地 `.nvmrc` + CI `setup-node@v6`） |
 
 ---
 
