@@ -2,9 +2,10 @@
 
 | 属性 | 内容 |
 |------|------|
-| 版本 | V1.0 |
+| 版本 | V1.1 |
 | 文档状态 | 已确认 |
-| 对应 PRD | [PRD-Web.md V1.1](./PRD-Web.md) |
+| 对应 PRD | [PRD-Web.md V1.2](./PRD-Web.md) |
+| 对应 UI/UX | [UIUX-Web.md V1.0](./UIUX-Web.md) |
 | 平台 | Web — React 19, TypeScript, Vite, Tailwind CSS v4 |
 | 部署 | GitHub Pages — `boardgamevoice-commits.github.io/guandan_master_web/` |
 | 最后更新 | 2026-07-03 |
@@ -36,10 +37,10 @@
 | PRD 模块 | SDD 章节 | 实现状态 |
 |----------|----------|----------|
 | F-001~F-007 开局设置 | §5.1, §6, §8 | 骨架 |
-| F-010~F-020 记分主控台 | §5.2, §7, §9 | 骨架 |
+| F-010~F-020 记分主控台 | §5.2, §7, §9 | RankPicker 占位 |
 | F-030~F-035 升级引擎 | §10.1 | ✅ `levelEngine.ts` |
 | F-040~F-042 进贡引擎 | §10.2 | ✅ `tributeEngine.ts` |
-| F-050~F-055 历史分享 | §5.4, §11 | 未实现 |
+| F-050~F-052 历史分享 | §5.6, §11 | Phase 1 最小集 |
 | F-060~F-064 牌型校验 | §10.3 | 未实现 |
 | 抗贡房规 | §10.4 | ✅ `houseRules.ts` |
 
@@ -122,10 +123,12 @@ src/
 ├── components/
 │   ├── layout/
 │   │   └── AppShell.tsx           # 顶栏 + 底 Tab
-│   ├── square/
-│   │   ├── SquareBoard.tsx        # 四方阵容器
-│   │   ├── PlayerNode.tsx         # 单边玩家按钮
-│   │   └── TributeArrows.tsx      # SVG 进贡箭头
+│   ├── ranking/
+│   │   ├── RankPicker.tsx         # Phase 1：第1–4名下拉/点选
+│   │   └── TributeTextPanel.tsx   # Phase 1：进贡文字指引
+│   ├── square/                    # Phase 2：四方阵 + 箭头
+│   │   ├── SquareBoard.tsx
+│   │   └── TributeArrows.tsx
 │   ├── scoreboard/
 │   │   ├── RoundBanner.tsx        # 轮次横幅
 │   │   ├── TeamScoreCard.tsx      # 计分卡片
@@ -140,10 +143,11 @@ src/
 │   │   ├── PlayerSetupForm.tsx
 │   │   └── HouseRulesPanel.tsx
 │   └── shared/
-│       ├── Modal.tsx              # 通用 Modal 壳
-│       ├── ConfirmDialog.tsx      # 抗贡 / 删除确认
-│       ├── RoundConfirmModal.tsx  # 下局确认（F-019）
-│       └── OnboardingOverlay.tsx  # 首次引导
+│       ├── Modal.tsx
+│       ├── ConfirmDialog.tsx
+│       ├── RoundConfirmModal.tsx
+│       ├── Toast.tsx              # 复制成功 / 错误提示
+│       └── OnboardingOverlay.tsx
 ├── domain/
 │   ├── levelEngine.ts             # ✅
 │   ├── levelEngine.test.ts        # ✅
@@ -173,7 +177,9 @@ src/
 │   ├── gameStore.ts               # 会话 + 持久化
 │   └── uiStore.ts                 # Modal 开关、引导状态
 ├── types/
-│   └── game.ts                    # ✅
+│   ├── game.ts
+│   ├── houseRules.ts              # AntiTributePresetId（类型层）
+│   └── session.ts                 # wildCardLevel 等 helpers
 ├── utils/
 │   ├── storage.ts                 # schema 版本、迁移
 │   ├── share.ts                   # Markdown/文本/Web Share
@@ -210,14 +216,24 @@ type Level = number;
 
 interface GameSession {
   id: string;
-  players: Player[];           // 固定 4 人，东南西北
+  players: Player[];
   ourLevel: Level;
   opponentLevel: Level;
-  currentDealer: Team;         // 当前台主（先出牌方）
+  /** 当前打级方（升级方）→ RoundBanner、逢人配级牌 */
+  playingTeam: Team;
+  /** 本局先出牌方（台主）→ TeamScoreCard 高亮 */
+  currentDealer: Team;
   houseRules: HouseRules;
-  rounds: GameRoundRecord[];   // 已完成局，append-only
+  rounds: GameRoundRecord[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** 逢人配级牌 = 打级方当前 level */
+function currentWildCard(session: GameSession): number {
+  return session.playingTeam === 'our'
+    ? session.ourLevel
+    : session.opponentLevel;
 }
 
 interface GameRoundRecord {
@@ -299,13 +315,9 @@ const SCHEMA_VERSION = 1;
 interface PersistedState {
   schemaVersion: number;
   session: GameSession | null;
-  ui: {
-    hasSeenOnboarding: boolean;
-  };
-  validator: {
-    /** 校验器独立选牌（不与记分耦合） */
-    selectedCardIds: string[];
-  };
+  roundDraft: RoundDraft | null;
+  ui: { hasSeenOnboarding: boolean };
+  validator: { selectedCardIds: string[] };
 }
 ```
 
@@ -460,7 +472,11 @@ sequenceDiagram
 
 校验器 **只读** session 级牌，不修改记分状态。
 
-### 5.6 历史与分享（Phase 2）
+### 5.6 历史与分享（Phase 1 最小集）
+
+- `HistoryPage` + `RoundList` + `RoundDetailModal`
+- `formatPlainText(session)` → 剪贴板 + `Toast`「已复制」
+- Markdown 精美排版 → Phase 2
 
 ```mermaid
 sequenceDiagram
@@ -753,15 +769,21 @@ calculateLevelChange
 → 构建 GameRoundRecord（含 snapshots）
 ```
 
-**台主切换规则：**
+**台主 / 打级 / 领出 — 定稿规则：**
 
-| 场景 | 下局台主 |
-|------|----------|
-| 正常进贡 | 下游方先出 → 上局输家方领出？**不对** |
-| 正常 | 下游接贡先出 → 实际下一局台主 = 接贡方（头游方） |
-| 抗贡 | 头游领出 → 头游所在 team 为下局台主 |
+| 概念 | 字段 | 更新时机 |
+|------|------|----------|
+| 打级方 | `playingTeam` | 胜方续打级；初始=首局台主方 |
+| 先出牌方 | `currentDealer` | = `TributeResult.leadPlayerId` 所属 team |
+| 逢人配 | `wildCardLevel(playingTeam, …)` | 每局结算后随 playingTeam level 变 |
 
-> **SDD 确认：** 下一局 `currentDealer` = 本局 `TributeResult.leadPlayerId` 所属 team。抗贡时 `leadPlayerId` = 头游；正常进贡时下游接贡先出，但**级牌/台主**跟「正在打级的一方」— 胜方升级后继续打级，台主为胜方（头游所在队）。与 iOS 对齐：胜方打级，台主 = 胜方 team。
+| 场景 | 下局 `currentDealer` | 下局 `playingTeam` |
+|------|----------------------|---------------------|
+| 正常进贡 | 头游 team 领出（接贡后先出，SDD 与 tributeEngine 一致） | 胜方 |
+| 抗贡 | 头游 team | 胜方 |
+| 过 A 胜利 | — | 本场结束，UI 庆祝 Banner |
+
+实现见 `domain/roundSettlement.ts` + `types/session.ts#wildCardLevel`。
 
 ---
 
@@ -773,7 +795,7 @@ calculateLevelChange
 |------|--------|-----|
 | GameSession | ✅ | `guandan-master:v1` |
 | hasSeenOnboarding | ✅ | 同上 |
-| RoundDraft | ❌ | 刷新页面丢失（可接受） |
+| RoundDraft | ✅ | 与 session 同键持久化，防刷新丢失 |
 | Validator 选牌 | ⚠ 可选 | 同上 ui.validator |
 
 ### 10.2 数据删除
@@ -803,7 +825,9 @@ async function shareOrCopy(text: string, title: string): Promise<'shared' | 'cop
 | 场景 | 用户提示 | 技术处理 |
 |------|----------|----------|
 | 排名无效（同队不可能组合） | 「此排名不符合规则」 | `calculateLevelChange` throw → catch |
-| localStorage 满 | 「存储空间不足，请导出后清除历史」 | try/catch QuotaExceededError |
+| localStorage 不可用 | 顶部警告条 + 内存态降级 | try/catch + `storageAvailable` 检测 |
+| 多 Tab 同时打开 | 后写覆盖 | `storage` 事件同步 或 UI 提示「请勿多 Tab」 |
+| SPA 深链 404 | GitHub Pages | `build:pages` 复制 `404.html` |
 | JSON 解析失败 | 静默重置 | migrate / 恢复默认 |
 | 校验空牌 | 「请选择至少一张牌」 | validator 前置检查 |
 | 无 session 进 /game | 重定向 /setup | 路由守卫 |
@@ -897,17 +921,17 @@ npm ci → npm run test:run → npm run build:pages → deploy
 
 | 周 | 交付 | 文件 |
 |----|------|------|
-| W1 | Store + Setup + 持久化 | `gameStore.ts`, `storage.ts`, `SetupPage` 完整 |
-| W1 | 四方阵录入 + 撤销 | `SquareBoard`, `PlayerNode`, `GamePage` |
-| W2 | 进贡箭头 + 抗贡 + 下局弹窗 | `TributeArrows`, `RoundConfirmModal`, `roundSettlement.ts` |
-| W2 | 过 A 规则 | `aceRules.ts` |
-| W3 | 牌型校验器 | `domain/card/*`, `ValidatorPage` 完整 |
-| W3 | 单测补全 + CI 绿 | 覆盖率 ≥ 95% domain |
+| W1 | Store + Setup + 持久化（含 roundDraft） | `gameStore.ts`, `storage.ts` |
+| W1 | **RankPicker** + 撤销 | `RankPicker`, `GamePage` |
+| W2 | 进贡文字 + 抗贡 + 下局弹窗 | `TributeTextPanel`, `roundSettlement.ts` |
+| W2 | **历史列表 + 纯文本复制** | `HistoryPage`, `format.ts`, `Toast` |
+| W3 | 牌型校验器 | `domain/card/*` |
+| W3 | 单测 + CI | domain ≥ 95% |
 
-### Phase 2 — 历史分享（1 周）
+### Phase 2 — 体验增强（1 周）
 
-- `HistoryPage` 完整、`format.ts`、`share.ts`
-- 删除/清空
+- 四方阵 `SquareBoard` + `TributeArrows`
+- Markdown 战报、PWA precache
 
 ### Phase 3 — 体验（1 周）
 
@@ -917,10 +941,10 @@ npm ci → npm run test:run → npm run build:pages → deploy
 
 ## 16. 开放问题
 
-- [ ] 过 A 胜利后 UI：弹窗庆祝 vs 静默标记「已过关」
-- [ ] 双下时「台主」是否一定是胜方 team（当前 SDD 假设是）
-- [ ] 校验器是否支持「同花顺」5 张起还是固定 5 张（国标 5 张）
-- [ ] 自定义域名绑定时机
+- [x] 台主 / 打级 / 级牌：`playingTeam` + `currentDealer`（§9.5）
+- [x] Phase 1 含历史 + 纯文本复制
+- [x] Phase 1 名次选择器，四方阵 Phase 2
+- [ ] 过 A 胜利 UI：Banner +「本场结束」
 
 ---
 
@@ -945,8 +969,9 @@ npm ci → npm run test:run → npm run build:pages → deploy
 
 | 项 | 配置 |
 |----|------|
-| Node.js | **24 LTS**（`.nvmrc` + `package.json#engines`） |
-| Vite base | `process.env.GITHUB_PAGES ? '/guandan_master_web/' : '/'` |
+| Node.js | **24 LTS**（`.nvmrc` + `engines`） |
+| Vite base | `/guandan_master_web/` |
+| SPA fallback | `cp dist/index.html dist/404.html` |
 | Router basename | `import.meta.env.BASE_URL` |
 | 构建 | `npm run build:pages` |
 | CI Actions | `checkout@v6`, `setup-node@v6`, `upload-pages-artifact@v4`, `deploy-pages@v5` |
@@ -964,4 +989,4 @@ npm ci → npm run test:run → npm run build:pages → deploy
 | 过 A | aceRules.ts | LevelViewModel | 待建 |
 | 牌型 | card/validator.ts | CardValidator | 待建 |
 | 持久化 | storage.ts | SwiftData | 待建 |
-| 分享 | share.ts | ShareLink | Phase 2 |
+| 持久化 | share.ts | ShareLink | Phase 1 纯文本 |

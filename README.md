@@ -6,6 +6,7 @@
 
 - [Web 端 PRD](./docs/PRD-Web.md)
 - [Web 端 SDD](./docs/SDD-Web.md)
+- [Web 端 UI/UX 规范](./docs/UIUX-Web.md)
 - iOS PRD V1.2 为功能对齐基准
 
 ## 技术栈

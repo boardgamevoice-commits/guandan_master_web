@@ -3,21 +3,15 @@
  * @see docs/PRD-Web.md 附录 C
  */
 
-export type AntiTributePresetId =
-  | 'combined_double_joker'
-  | 'double_down_joker_split'
-  | 'four_jokers'
-  | 'disabled';
+import type { AntiTributePresetId } from '@/types/houseRules';
+export type { AntiTributePresetId } from '@/types/houseRules';
+export { DEFAULT_ANTI_TRIBUTE_PRESET } from '@/types/houseRules';
 
 export interface AntiTributePreset {
   id: AntiTributePresetId;
-  /** 设置页展示名称 */
   label: string;
-  /** 简短说明 */
   description: string;
-  /** 勾选抗贡时确认弹窗文案 */
   confirmMessage: string;
-  /** 抗贡成功后的提示模板，{leader} 替换为领出者姓名 */
   successMessageTemplate: string;
 }
 
@@ -55,9 +49,6 @@ export const ANTI_TRIBUTE_PRESETS: readonly AntiTributePreset[] = [
   },
 ] as const;
 
-export const DEFAULT_ANTI_TRIBUTE_PRESET: AntiTributePresetId =
-  'combined_double_joker';
-
 export function getAntiTributePreset(
   id: AntiTributePresetId,
 ): AntiTributePreset {
@@ -68,7 +59,6 @@ export function getAntiTributePreset(
   return preset;
 }
 
-/** 当前房规是否允许用户手动标记抗贡 */
 export function isAntiTributeEnabled(presetId: AntiTributePresetId): boolean {
   return presetId !== 'disabled';
 }

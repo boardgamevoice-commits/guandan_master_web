@@ -1,3 +1,5 @@
+import type { AntiTributePresetId } from '@/types/houseRules';
+
 export type Team = 'our' | 'opponent';
 
 export type Position = '东' | '南' | '西' | '北';
@@ -21,17 +23,14 @@ export interface GameRoundRecord {
   ranks: string[];
   resultType: ResultType;
   isAntiTribute: boolean;
+  /** 该局打级方级牌（逢人配）快照 */
   currentWildCard: number;
   ourLevelSnapshot: number;
   opponentLevelSnapshot: number;
 }
 
-import type { AntiTributePresetId } from '@/domain/houseRules';
-
 export interface HouseRules {
-  /** 打 A 是否必须双下才能过 A */
   aceRequiresDoubleDown: boolean;
-  /** 抗贡条件预设，见 domain/houseRules.ts */
   antiTributePreset: AntiTributePresetId;
 }
 
@@ -40,6 +39,9 @@ export interface GameSession {
   players: Player[];
   ourLevel: number;
   opponentLevel: number;
+  /** 当前打级方（升级方）；RoundBanner 显示其 level */
+  playingTeam: Team;
+  /** 本局先出牌方（台主）；TeamScoreCard 高亮 */
   currentDealer: Team;
   houseRules: HouseRules;
   rounds: GameRoundRecord[];
