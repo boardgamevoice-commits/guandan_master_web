@@ -37,6 +37,10 @@ export interface HouseRules {
 export interface GameSession {
   id: string;
   players: Player[];
+  /** 新对局起始级数，用于撤回上一局恢复 */
+  initialOurLevel: number;
+  initialOpponentLevel: number;
+  initialDealerTeam: Team;
   ourLevel: number;
   opponentLevel: number;
   /** 当前打级方（升级方）；RoundBanner 显示其 level */

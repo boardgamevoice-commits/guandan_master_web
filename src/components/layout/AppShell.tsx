@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Toast } from '@/components/shared/Toast';
+import { useGameStore } from '@/stores/gameStore';
+import { useUiStore } from '@/stores/uiStore';
 
 const navItems = [
   { to: '/game', label: '记分' },
@@ -8,18 +11,27 @@ const navItems = [
 ];
 
 export function AppShell() {
+  const location = useLocation();
+  const session = useGameStore((state) => state.session);
+  const toastMessage = useUiStore((state) => state.toastMessage);
+  const subtitle =
+    location.pathname === '/game' && session
+      ? `第 ${session.rounds.length + 1} 局`
+      : '线下记分 · 进贡指引';
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
         <h1 className="text-lg font-semibold tracking-tight">掼蛋大师</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          线下记分 · 进贡指引
+          {subtitle}
         </p>
       </header>
 
       <main className="flex-1 px-4 py-6">
         <Outlet />
       </main>
+      <Toast message={toastMessage} />
 
       <nav
         className="sticky bottom-0 border-t border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80"
