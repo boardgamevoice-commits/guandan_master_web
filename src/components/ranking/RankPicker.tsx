@@ -11,40 +11,100 @@ interface RankPickerProps {
 }
 
 export function RankPicker({ players, ranks, onSetRank, onReset }: RankPickerProps) {
+  const nextRankIndex = ranks.findIndex((rank) => rank === null);
+  const selectedCount = ranks.filter((rank) => rank !== null).length;
+
+  function handlePick(playerId: string) {
+    const existingRankIndex = ranks.findIndex((rank) => rank === playerId);
+    if (existingRankIndex >= 0) {
+      onSetRank(existingRankIndex, '');
+      return;
+    }
+    if (nextRankIndex >= 0) {
+      onSetRank(nextRankIndex, playerId);
+    }
+  }
+
+  function handleUndoLastStep() {
+    const lastFilledIndex = ranks.reduce(
+      (latest, rank, index) => (rank ? index : latest),
+      -1,
+    );
+    if (lastFilledIndex >= 0) {
+      onSetRank(lastFilledIndex, '');
+    }
+  }
+
   return (
     <div className="space-y-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
       <p className="text-sm font-medium">录入名次</p>
-      <p className="text-xs text-neutral-500">为第 1–4 名各选一名玩家，不可重复。</p>
-      {RANK_LABELS.map((label, index) => (
-        <div key={label} className="flex items-center gap-3">
-          <span className="w-14 shrink-0 text-sm text-neutral-500">{label}</span>
-          <select
-            className="flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            value={ranks[index] ?? ''}
-            onChange={(event) => onSetRank(index, event.target.value)}
-          >
-            <option value="">选择玩家</option>
-            {players.map((player) => {
-              const occupiedByOthers = ranks.some(
-                (rank, rankIndex) => rank === player.id && rankIndex !== index,
-              );
-              if (occupiedByOthers) return null;
-              return (
-                <option key={player.id} value={player.id}>
-                  {displayName(player)}（{player.position}）
-                </option>
-              );
-            })}
-          </select>
-        </div>
-      ))}
-      <button
-        type="button"
-        className="text-sm text-neutral-500 underline"
-        onClick={onReset}
-      >
-        撤销重选
-      </button>
+      <p className="text-xs text-neutral-500">
+        请按出完顺序点击玩家：先出完的是第 1 名。再次点击已选玩家可取消该名次。
+      </p>
+
+      <div className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
+        {selectedCount < 4
+          ? `已录入 ${selectedCount}/4，下一位：${RANK_LABELS[selectedCount]}`
+          : '名次已录入完成，可确认进贡信息'}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {players.map((player) => {
+          const rankIndex = ranks.findIndex((rank) => rank === player.id);
+          const isSelected = rankIndex >= 0;
+          return (
+            <button
+              key={player.id}
+              type="button"
+              onClick={() => handlePick(player.id)}
+              className={[
+                'relative rounded-xl border px-3 py-3 text-left text-sm transition',
+                isSelected
+                  ? 'border-our bg-our/10 text-neutral-900 dark:text-neutral-100'
+                  : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900',
+              ].join(' ')}
+            >
+              <p className="font-medium">{displayName(player)}</p>
+              <p className="mt-1 text-xs text-neutral-500">{player.position}</p>
+              {isSelected && (
+                <span className="absolute right-2 top-2 rounded bg-our px-2 py-0.5 text-[11px] font-semibold text-white">
+                  {rankIndex + 1}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-dashed border-neutral-200 p-3 dark:border-neutral-700">
+        {RANK_LABELS.map((label, index) => {
+          const player = players.find((item) => item.id === ranks[index]);
+          return (
+            <p key={label} className="text-sm text-neutral-600 dark:text-neutral-300">
+              {label}：{player ? `${displayName(player)}（${player.position}）` : '待选择'}
+            </p>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-4 text-sm">
+        <button
+          type="button"
+          className="text-neutral-500 underline"
+          onClick={handleUndoLastStep}
+          disabled={selectedCount === 0}
+        >
+          撤销上一步
+        </button>
+        <button
+          type="button"
+          className="text-neutral-500 underline"
+          onClick={onReset}
+          disabled={selectedCount === 0}
+        >
+          清空重选
+        </button>
+      </div>
     </div>
   );
 }

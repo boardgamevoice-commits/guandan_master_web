@@ -6,7 +6,8 @@ import { useGameStore, getDefaultSetupInput } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
 import type { Position, Team } from '@/types/game';
 
-const POSITIONS: Position[] = ['东', '南', '西', '北'];
+const OUR_POSITIONS: Position[] = ['南', '北'];
+const OPPONENT_POSITIONS: Position[] = ['东', '西'];
 
 export function SetupPage() {
   const navigate = useNavigate();
@@ -67,20 +68,19 @@ export function SetupPage() {
           navigate('/game');
         }}
       >
-        <div className="space-y-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
-          <p className="text-sm font-medium">玩家信息</p>
-          {POSITIONS.map((position) => {
-            const isOurTeam = position === '南' || position === '北';
-            return (
+        <div className="space-y-4 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+          <div>
+            <p className="text-sm font-medium">四位玩家（姓名 / 昵称）</p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              建议按真实座位填写，进入主控台后会直接显示这 4 位玩家供顺序点击录入名次。
+            </p>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-our/20 bg-our/5 p-3">
+            <p className="text-xs font-medium text-our">我方（南北）</p>
+            {OUR_POSITIONS.map((position) => (
               <label key={position} className="flex items-center gap-3 text-sm">
-                <span
-                  className={[
-                    'w-8 shrink-0 rounded px-2 py-1 text-center text-xs',
-                    isOurTeam
-                      ? 'bg-our/10 text-our'
-                      : 'bg-opponent/10 text-opponent',
-                  ].join(' ')}
-                >
+                <span className="w-8 shrink-0 rounded bg-our/10 px-2 py-1 text-center text-xs text-our">
                   {position}
                 </span>
                 <input
@@ -96,13 +96,36 @@ export function SetupPage() {
                   className="flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
                 />
               </label>
-            );
-          })}
+            ))}
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-opponent/20 bg-opponent/5 p-3">
+            <p className="text-xs font-medium text-opponent">对方（东西）</p>
+            {OPPONENT_POSITIONS.map((position) => (
+              <label key={position} className="flex items-center gap-3 text-sm">
+                <span className="w-8 shrink-0 rounded bg-opponent/10 px-2 py-1 text-center text-xs text-opponent">
+                  {position}
+                </span>
+                <input
+                  type="text"
+                  value={names[position]}
+                  onChange={(event) =>
+                    setNames((current) => ({
+                      ...current,
+                      [position]: event.target.value,
+                    }))
+                  }
+                  placeholder={`${position}位玩家（可留空）`}
+                  className="flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                />
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
           <label className="space-y-1 text-sm">
-            <span className="text-neutral-500">南北级数</span>
+            <span className="text-neutral-500">南北起始级数</span>
             <select
               value={ourLevel}
               onChange={(event) => setOurLevel(Number(event.target.value))}
@@ -116,7 +139,7 @@ export function SetupPage() {
             </select>
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-neutral-500">东西级数</span>
+            <span className="text-neutral-500">东西起始级数</span>
             <select
               value={opponentLevel}
               onChange={(event) => setOpponentLevel(Number(event.target.value))}
@@ -133,6 +156,9 @@ export function SetupPage() {
 
         <div className="space-y-3 rounded-2xl border border-neutral-200 p-4 text-sm dark:border-neutral-800">
           <p className="font-medium">首局先出牌</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            先出牌的一方在首局默认拥有节奏优势。
+          </p>
           <div className="flex gap-4">
             <label className="inline-flex items-center gap-2">
               <input
