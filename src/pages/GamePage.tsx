@@ -12,7 +12,8 @@ import { teamLabel } from '@/utils/format';
 export function GamePage() {
   const session = useGameStore((state) => state.session);
   const roundDraft = useGameStore((state) => state.roundDraft);
-  const setRank = useGameStore((state) => state.setRank);
+  const toggleRankPlayer = useGameStore((state) => state.toggleRankPlayer);
+  const undoLastRank = useGameStore((state) => state.undoLastRank);
   const resetRoundDraft = useGameStore((state) => state.resetRoundDraft);
   const setAntiTribute = useGameStore((state) => state.setAntiTribute);
   const confirmRound = useGameStore((state) => state.confirmRound);
@@ -83,7 +84,8 @@ export function GamePage() {
       <RankPicker
         players={session.players}
         ranks={roundDraft.ranks}
-        onSetRank={setRank}
+        onTogglePlayer={toggleRankPlayer}
+        onUndoLast={undoLastRank}
         onReset={resetRoundDraft}
       />
 
@@ -171,7 +173,7 @@ export function GamePage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-4 text-sm shadow-xl dark:bg-neutral-900">
             <h3 className="text-base font-semibold">新手引导</h3>
             <p className="mt-2 text-neutral-600 dark:text-neutral-300">
-              请按出完顺序点击 4 位玩家，系统会自动写入第 1–4 名并推导升级与进贡关系。
+              请按出完顺序点击 4 位玩家，下方会显示名次。点错可再次点击取消。
             </p>
             <div className="mt-4">
               <button

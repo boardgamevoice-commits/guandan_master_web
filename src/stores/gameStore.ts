@@ -16,6 +16,11 @@ import type {
   Team,
 } from '@/types/game';
 import { DEFAULT_HOUSE_RULES } from '@/types/game';
+import {
+  EMPTY_RANKS,
+  toggleRankPlayer as toggleRankPlayerInDraft,
+  undoLastRank as undoLastRankInDraft,
+} from '@/domain/rankingDraft';
 import type { RoundDraft } from '@/types/round';
 
 interface SetupInput {
@@ -31,7 +36,8 @@ interface GameState {
   session: GameSession | null;
   roundDraft: RoundDraft;
   createSession: (input: SetupInput) => void;
-  setRank: (rankIndex: number, playerId: string) => void;
+  toggleRankPlayer: (playerId: string) => void;
+  undoLastRank: () => void;
   resetRoundDraft: () => void;
   setAntiTribute: (value: boolean) => void;
   confirmRound: () => void;
@@ -39,8 +45,6 @@ interface GameState {
   clearHistory: () => void;
   deleteRound: (roundId: string) => void;
 }
-
-const EMPTY_RANKS: Array<string | null> = [null, null, null, null];
 
 const DEFAULT_NAMES: Record<Position, string> = {
   东: '',
@@ -112,18 +116,20 @@ export const useGameStore = create<GameState>()(
           roundDraft: { ranks: [...EMPTY_RANKS], isAntiTribute: false },
         });
       },
-      setRank: (rankIndex, playerId) => {
-        if (rankIndex < 0 || rankIndex > 3) return;
-        set((state) => {
-          const nextRanks = state.roundDraft.ranks.map((rank) =>
-            rank === playerId ? null : rank,
-          );
-          nextRanks[rankIndex] = playerId || null;
-          return {
-            roundDraft: { ...state.roundDraft, ranks: nextRanks },
-          };
-        });
-      },
+      toggleRankPlayer: (playerId) =>
+        set((state) => ({
+          roundDraft: {
+            ...state.roundDraft,
+            ranks: toggleRankPlayerInDraft(state.roundDraft.ranks, playerId),
+          },
+        })),
+      undoLastRank: () =>
+        set((state) => ({
+          roundDraft: {
+            ...state.roundDraft,
+            ranks: undoLastRankInDraft(state.roundDraft.ranks),
+          },
+        })),
       resetRoundDraft: () =>
         set((state) => ({
           roundDraft: {
