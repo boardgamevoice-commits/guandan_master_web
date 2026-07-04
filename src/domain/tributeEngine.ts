@@ -32,13 +32,12 @@ export function calculateTribute(
     return player;
   });
 
-  const [first, second, , fourth] = ranked;
-  const leadPlayerId = first.id;
+  const [first, second, third, fourth] = ranked;
 
   if (isAntiTribute) {
     return {
       relations: [],
-      leadPlayerId,
+      leadPlayerId: first.id,
       isAntiTribute: true,
     };
   }
@@ -52,7 +51,9 @@ export function calculateTribute(
         toPlayerId: targets[index]!.id,
         label: `${displayName(from)}(下) 向 ${displayName(targets[index]!)}(游) 进贡最大牌`,
       })),
-      leadPlayerId,
+      // 标准规则是“贡大者先出”；在未确认贡牌大小前默认取双下方先列玩家，
+      // 后续由 UI 在“上局进贡确认”里允许修正。
+      leadPlayerId: third.id,
       isAntiTribute: false,
     };
   }
@@ -65,7 +66,8 @@ export function calculateTribute(
         label: `${displayName(fourth)}(下) 向 ${displayName(first)}(头) 进贡最大牌`,
       },
     ],
-    leadPlayerId,
+    // 单贡默认由下游（进贡者）领出。
+    leadPlayerId: fourth.id,
     isAntiTribute: false,
   };
 }

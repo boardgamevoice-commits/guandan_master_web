@@ -18,6 +18,7 @@ export function GamePage() {
   const undoLastRank = useGameStore((state) => state.undoLastRank);
   const resetRoundDraft = useGameStore((state) => state.resetRoundDraft);
   const setPendingAntiTribute = useGameStore((state) => state.setPendingAntiTribute);
+  const setPendingLeadPlayer = useGameStore((state) => state.setPendingLeadPlayer);
   const confirmPendingTributeReview = useGameStore((state) => state.confirmPendingTributeReview);
   const confirmRound = useGameStore((state) => state.confirmRound);
   const undoLastRound = useGameStore((state) => state.undoLastRound);
@@ -64,6 +65,16 @@ export function GamePage() {
   const pendingLeader = pendingTribute
     ? session.players.find((player) => player.id === pendingTribute.leadPlayerId)
     : null;
+  const pendingLeadCandidates = useMemo(() => {
+    if (!pendingRound) return [];
+    if (pendingRound.resultType === 'double_down') {
+      return pendingRound.ranks.slice(2, 4);
+    }
+    if (pendingRound.resultType === 'single_down_opponent' || pendingRound.resultType === 'single_down_our') {
+      return [pendingRound.ranks[3]!];
+    }
+    return [pendingRound.ranks[0]!];
+  }, [pendingRound]);
   const gameEnded = Boolean(session.rounds[session.rounds.length - 1]?.acePassed);
   const rankingLocked = Boolean(gameEnded || (pendingRound && pendingTribute));
 
@@ -148,29 +159,60 @@ export function GamePage() {
                   </p>
                 ))
               )}
-              {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
-                <div className="space-y-2 text-sm">
-                  <p className="text-neutral-600 dark:text-neutral-300">上局结果</p>
-                  <label className="inline-flex items-center gap-2 pr-4">
-                    <input
-                      type="radio"
-                      name="pendingAntiTribute"
-                      checked={!pendingReview?.isAntiTribute}
-                      onChange={() => setPendingAntiTribute(false)}
-                    />
-                    未抗贡（默认）
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="pendingAntiTribute"
-                      checked={Boolean(pendingReview?.isAntiTribute)}
-                      onChange={() => openAntiTributeDialog()}
-                    />
-                    抗贡
-                  </label>
-                </div>
-              )}
+              <div className="space-y-2 text-sm">
+                {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
+                  <>
+                    <p className="text-neutral-600 dark:text-neutral-300">上局结果</p>
+                    <label className="inline-flex items-center gap-2 pr-4">
+                      <input
+                        type="radio"
+                        name="pendingAntiTribute"
+                        checked={!pendingReview?.isAntiTribute}
+                        onChange={() => setPendingAntiTribute(false)}
+                      />
+                      未抗贡（默认）
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="pendingAntiTribute"
+                        checked={Boolean(pendingReview?.isAntiTribute)}
+                        onChange={() => {
+                          if (!pendingReview?.isAntiTribute) openAntiTributeDialog();
+                        }}
+                      />
+                      抗贡
+                    </label>
+                  </>
+                )}
+                {!pendingReview?.isAntiTribute && pendingLeadCandidates.length > 0 && (
+                  <div className="space-y-1 rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900">
+                    <p className="text-xs text-neutral-500">先出牌玩家（按标准规则确认）</p>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      {pendingLeadCandidates.map((playerId) => {
+                        const player = session.players.find((item) => item.id === playerId);
+                        if (!player) return null;
+                        return (
+                          <label key={playerId} className="inline-flex items-center gap-1">
+                            <input
+                              type="radio"
+                              name="pendingLeadPlayer"
+                              checked={pendingReview?.leadPlayerId === playerId}
+                              onChange={() => setPendingLeadPlayer(playerId)}
+                            />
+                            {displayName(player)}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {pendingRound.resultType === 'double_down' && (
+                      <p className="text-[11px] text-neutral-500">
+                        双下时请按贡牌大小选择；若同点，选择上游下家。
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white"

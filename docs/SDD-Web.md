@@ -776,8 +776,8 @@ calculateLevelChange
 
 | 场景 | 下局 `currentDealer` | 下局 `playingTeam` |
 |------|----------------------|---------------------|
-| 正常进贡 | 头游 team 领出（接贡后先出，SDD 与 tributeEngine 一致） | 胜方 |
-| 抗贡 | 头游 team | 胜方 |
+| 正常进贡 | 单贡由下游领出；双下由贡牌大者领出（同点为上游下家） | 下游方 |
+| 抗贡 | 头游领出 | 胜方 |
 | 过 A 胜利 | — | 本场结束，UI 庆祝 Banner |
 
 实现见 `domain/roundSettlement.ts` + `types/session.ts#wildCardLevel`。

@@ -42,6 +42,7 @@ interface GameState {
   undoLastRank: () => void;
   resetRoundDraft: () => void;
   setPendingAntiTribute: (value: boolean) => void;
+  setPendingLeadPlayer: (playerId: string) => void;
   confirmPendingTributeReview: () => void;
   confirmRound: () => void;
   undoLastRound: () => void;
@@ -161,19 +162,40 @@ export const useGameStore = create<GameState>()(
               }
             : state.session,
         })),
+      setPendingLeadPlayer: (playerId) =>
+        set((state) => ({
+          session: state.session?.pendingTributeReview
+            ? {
+                ...state.session,
+                pendingTributeReview: {
+                  ...state.session.pendingTributeReview,
+                  leadPlayerId: playerId,
+                },
+              }
+            : state.session,
+        })),
       confirmPendingTributeReview: () =>
         set((state) => {
           if (!state.session || !state.session.pendingTributeReview) return state;
           const pending = state.session.pendingTributeReview;
           const rounds = state.session.rounds.map((round) =>
             round.id === pending.roundId
-              ? { ...round, isAntiTribute: pending.isAntiTribute }
+              ? {
+                  ...round,
+                  isAntiTribute: pending.isAntiTribute,
+                  leadPlayerId: pending.isAntiTribute ? round.ranks[0]! : pending.leadPlayerId,
+                }
               : round,
           );
+          const updatedRound = rounds.find((round) => round.id === pending.roundId);
+          const leadPlayer = updatedRound
+            ? state.session.players.find((player) => player.id === updatedRound.leadPlayerId)
+            : null;
           return {
             session: {
               ...state.session,
               rounds,
+              currentDealer: leadPlayer ? leadPlayer.team : state.session.currentDealer,
               pendingTributeReview: null,
               updatedAt: new Date().toISOString(),
             },
@@ -187,11 +209,16 @@ export const useGameStore = create<GameState>()(
         const settled = settleRound(state.session, state.roundDraft);
         if (!settled) return;
 
+        const needsLeadConfirmation = settled.roundRecord.resultType === 'double_down';
+        const antiEnabled = isAntiTributeEnabled(settled.nextSession.houseRules.antiTributePreset);
         const pendingTributeReview =
-          settled.roundRecord.acePassed ||
-          !isAntiTributeEnabled(settled.nextSession.houseRules.antiTributePreset)
+          settled.roundRecord.acePassed || (!antiEnabled && !needsLeadConfirmation)
             ? null
-            : { roundId: settled.roundRecord.id, isAntiTribute: false };
+            : {
+                roundId: settled.roundRecord.id,
+                isAntiTribute: false,
+                leadPlayerId: settled.roundRecord.leadPlayerId,
+              };
         set({
           session: {
             ...settled.nextSession,
@@ -251,7 +278,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'guandan-master:v1',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState: unknown, version) => {
         if (!persistedState || typeof persistedState !== 'object') {
@@ -265,15 +292,36 @@ export const useGameStore = create<GameState>()(
           roundDraft?: { ranks?: Array<string | null> };
         };
         const migratedSession = current.session
-          ? {
-              ...current.session,
-              rounds: (current.session.rounds ?? []).map((round) => ({
+          ? (() => {
+              const rounds = (current.session.rounds ?? []).map((round) => ({
                 ...round,
+                leadPlayerId:
+                  version < 4
+                    ? (round.isAntiTribute ? round.ranks[0] : round.ranks[3]) ?? round.ranks[0]!
+                    : round.leadPlayerId ?? round.ranks[0]!,
                 acePassed: version < 3 ? false : round.acePassed ?? false,
-              })),
-              pendingTributeReview:
-                version < 2 ? null : current.session.pendingTributeReview ?? null,
-            }
+              }));
+              const pending = current.session.pendingTributeReview;
+              const pendingRound = pending
+                ? rounds.find((round) => round.id === pending.roundId)
+                : null;
+              const pendingLeadPlayerId = pending
+                ? version < 4
+                  ? pendingRound?.leadPlayerId ?? pendingRound?.ranks[3] ?? pendingRound?.ranks[0]
+                  : pending.leadPlayerId ?? pendingRound?.leadPlayerId
+                : null;
+              return {
+                ...current.session,
+                rounds,
+                pendingTributeReview:
+                  version < 2 || !pending || !pendingLeadPlayerId
+                    ? null
+                    : {
+                        ...pending,
+                        leadPlayerId: pendingLeadPlayerId,
+                      },
+              };
+            })()
           : null;
         return {
           ...current,

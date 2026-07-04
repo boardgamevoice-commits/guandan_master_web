@@ -14,6 +14,7 @@ export interface RoundPreview {
   nextOurLevel: number;
   nextOpponentLevel: number;
   nextDealer: Team;
+  nextLeadPlayerId: string;
   winner: Team;
   acePassed: boolean;
   aceMessage: string | null;
@@ -65,6 +66,7 @@ export function previewRound(session: GameSession, draft: RoundDraft): RoundPrev
     nextOurLevel: nextLevels.ourLevel,
     nextOpponentLevel: nextLevels.opponentLevel,
     nextDealer: leader.team,
+    nextLeadPlayerId: leader.id,
     winner: change.winner,
     acePassed: ace.passed,
     aceMessage: localizeAceMessage(ace.message, session.players),
@@ -86,6 +88,7 @@ export function settleRound(
     ranks: [...rankedIds],
     resultType: calculateLevelChange(rankedIds, session.players).resultType,
     isAntiTribute: false,
+    leadPlayerId: preview.nextLeadPlayerId,
     acePassed: preview.acePassed,
     currentWildCard: getCurrentWildCard(session),
     ourLevelSnapshot: preview.nextOurLevel,
@@ -142,13 +145,7 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
       afterOpponentLevel: nextLevels.opponentLevel,
       houseRules: nextSession.houseRules,
     });
-    const tribute = calculateTribute(
-      round.ranks,
-      nextSession.players,
-      change.resultType,
-      round.isAntiTribute,
-    );
-    const leader = findPlayerById(nextSession.players, tribute.leadPlayerId);
+    const leader = resolveRoundLeadPlayer(nextSession.players, round);
 
     const replayed: GameRoundRecord = {
       ...round,
@@ -189,4 +186,21 @@ function localizeAceMessage(message: string | null, players: Player[]): string |
   return message
     .replaceAll('南北队', `${teamPlayersLabel(players, 'our')}队`)
     .replaceAll('东西队', `${teamPlayersLabel(players, 'opponent')}队`);
+}
+
+function resolveRoundLeadPlayer(
+  players: Player[],
+  round: Pick<GameRoundRecord, 'ranks' | 'resultType' | 'isAntiTribute'> &
+    Partial<Pick<GameRoundRecord, 'leadPlayerId'>>,
+): Player {
+  if (round.leadPlayerId) {
+    return findPlayerById(players, round.leadPlayerId);
+  }
+  if (round.isAntiTribute) {
+    return findPlayerById(players, round.ranks[0]!);
+  }
+  if (round.resultType === 'double_down') {
+    return findPlayerById(players, round.ranks[2]!);
+  }
+  return findPlayerById(players, round.ranks[3]!);
 }
