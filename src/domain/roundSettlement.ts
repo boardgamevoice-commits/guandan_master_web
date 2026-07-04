@@ -104,6 +104,7 @@ export function settleRound(
       opponentLevel: preview.nextOpponentLevel,
       playingTeam: preview.winner,
       currentDealer: preview.nextDealer,
+      currentLeadPlayerId: preview.nextLeadPlayerId,
       rounds: [...session.rounds, roundRecord],
       pendingTributeReview: null,
       updatedAt: new Date().toISOString(),
@@ -130,6 +131,7 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
     opponentLevel: session.initialOpponentLevel,
     playingTeam: session.initialDealerTeam,
     currentDealer: session.initialDealerTeam,
+    currentLeadPlayerId: session.currentLeadPlayerId,
     pendingTributeReview: null,
   };
 
@@ -163,6 +165,7 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
       opponentLevel: nextLevels.opponentLevel,
       playingTeam: change.winner,
       currentDealer: leader.team,
+      currentLeadPlayerId: leader.id,
     };
 
     return replayed;

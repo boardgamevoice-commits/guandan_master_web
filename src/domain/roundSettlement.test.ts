@@ -20,6 +20,7 @@ function createSession(): GameSession {
     opponentLevel: 2,
     playingTeam: 'our',
     currentDealer: 'our',
+    currentLeadPlayerId: 'south',
     houseRules: {
       antiTributePreset: 'combined_double_joker',
       aceRequiresDoubleDown: true,

@@ -4,7 +4,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ANTI_TRIBUTE_PRESETS } from '@/domain/houseRules';
 import { useGameStore, getDefaultSetupInput } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
-import type { Position, Team } from '@/types/game';
+import type { Position } from '@/types/game';
 
 const OUR_POSITIONS: Position[] = ['南', '北'];
 const OPPONENT_POSITIONS: Position[] = ['东', '西'];
@@ -22,7 +22,6 @@ export function SetupPage() {
   const [names, setNames] = useState(defaults.names);
   const [ourLevel, setOurLevel] = useState(defaults.ourLevel);
   const [opponentLevel, setOpponentLevel] = useState(defaults.opponentLevel);
-  const [dealerTeam, setDealerTeam] = useState<Team>(defaults.dealerTeam);
   const [antiPreset, setAntiPreset] = useState(defaults.antiTributePreset);
   const [aceRequiresDoubleDown, setAceRequiresDoubleDown] = useState(
     defaults.aceRequiresDoubleDown,
@@ -37,7 +36,6 @@ export function SetupPage() {
     setNames(nextNames);
     setOurLevel(session.ourLevel);
     setOpponentLevel(session.opponentLevel);
-    setDealerTeam(session.currentDealer);
     setAntiPreset(session.houseRules.antiTributePreset);
     setAceRequiresDoubleDown(session.houseRules.aceRequiresDoubleDown);
   }, [defaults.names, session]);
@@ -61,7 +59,7 @@ export function SetupPage() {
             names,
             ourLevel,
             opponentLevel,
-            dealerTeam,
+            dealerTeam: defaults.dealerTeam,
             antiTributePreset: antiPreset,
             aceRequiresDoubleDown,
           });
@@ -155,31 +153,6 @@ export function SetupPage() {
         </div>
 
         <div className="space-y-3 rounded-2xl border border-neutral-200 p-4 text-sm dark:border-neutral-800">
-          <p className="font-medium">首局先出牌</p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            先出牌的一方在首局默认拥有节奏优势。
-          </p>
-          <div className="flex gap-4">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="radio"
-                name="dealerTeam"
-                checked={dealerTeam === 'our'}
-                onChange={() => setDealerTeam('our')}
-              />
-              南北
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="radio"
-                name="dealerTeam"
-                checked={dealerTeam === 'opponent'}
-                onChange={() => setDealerTeam('opponent')}
-              />
-              东西
-            </label>
-          </div>
-
           <label className="block space-y-1">
             <span className="text-neutral-500">抗贡房规</span>
             <select
@@ -203,6 +176,9 @@ export function SetupPage() {
             />
             打 A 必须双下
           </label>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            首局先出牌可在进入记分页后，通过点击玩家昵称直接选择。
+          </p>
         </div>
 
         <div className="space-y-2">

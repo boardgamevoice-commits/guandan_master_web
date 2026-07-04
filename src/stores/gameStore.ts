@@ -38,6 +38,7 @@ interface GameState {
   session: GameSession | null;
   roundDraft: RoundDraft;
   createSession: (input: SetupInput) => void;
+  setOpeningLeadPlayer: (playerId: string) => void;
   toggleRankPlayer: (playerId: string) => void;
   undoLastRank: () => void;
   resetRoundDraft: () => void;
@@ -64,6 +65,10 @@ function createPlayers(names: Record<Position, string>): Player[] {
     { id: 'west', position: '西', name: names.西, team: 'opponent' },
     { id: 'north', position: '北', name: names.北, team: 'our' },
   ];
+}
+
+function defaultLeadPlayerId(dealerTeam: Team): string {
+  return dealerTeam === 'our' ? 'south' : 'east';
 }
 
 function getHouseRules(
@@ -114,6 +119,7 @@ export const useGameStore = create<GameState>()(
           opponentLevel: input.opponentLevel,
           playingTeam: input.dealerTeam,
           currentDealer: input.dealerTeam,
+          currentLeadPlayerId: defaultLeadPlayerId(input.dealerTeam),
           houseRules: getHouseRules(
             input.antiTributePreset,
             input.aceRequiresDoubleDown,
@@ -129,6 +135,21 @@ export const useGameStore = create<GameState>()(
           roundDraft: { ranks: [...EMPTY_RANKS] },
         });
       },
+      setOpeningLeadPlayer: (playerId) =>
+        set((state) => {
+          if (!state.session || state.session.rounds.length > 0) return state;
+          const leadPlayer = state.session.players.find((player) => player.id === playerId);
+          if (!leadPlayer) return state;
+          return {
+            session: {
+              ...state.session,
+              currentLeadPlayerId: leadPlayer.id,
+              currentDealer: leadPlayer.team,
+              playingTeam: leadPlayer.team,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+        }),
       toggleRankPlayer: (playerId) =>
         set((state) => ({
           roundDraft: {
@@ -196,6 +217,9 @@ export const useGameStore = create<GameState>()(
               ...state.session,
               rounds,
               currentDealer: leadPlayer ? leadPlayer.team : state.session.currentDealer,
+              currentLeadPlayerId: leadPlayer
+                ? leadPlayer.id
+                : state.session.currentLeadPlayerId,
               pendingTributeReview: null,
               updatedAt: new Date().toISOString(),
             },
@@ -254,6 +278,7 @@ export const useGameStore = create<GameState>()(
               opponentLevel: state.session.initialOpponentLevel,
               playingTeam: state.session.initialDealerTeam,
               currentDealer: state.session.initialDealerTeam,
+              currentLeadPlayerId: defaultLeadPlayerId(state.session.initialDealerTeam),
               pendingTributeReview: null,
               updatedAt: new Date().toISOString(),
             },
@@ -278,7 +303,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'guandan-master:v1',
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState: unknown, version) => {
         if (!persistedState || typeof persistedState !== 'object') {
@@ -310,8 +335,15 @@ export const useGameStore = create<GameState>()(
                   ? pendingRound?.leadPlayerId ?? pendingRound?.ranks[3] ?? pendingRound?.ranks[0]
                   : pending.leadPlayerId ?? pendingRound?.leadPlayerId
                 : null;
+              const latestLeadPlayerId = rounds[rounds.length - 1]?.leadPlayerId;
               return {
                 ...current.session,
+                currentLeadPlayerId:
+                  version < 5
+                    ? current.session.currentLeadPlayerId ??
+                      latestLeadPlayerId ??
+                      defaultLeadPlayerId(current.session.currentDealer)
+                    : current.session.currentLeadPlayerId,
                 rounds,
                 pendingTributeReview:
                   version < 2 || !pending || !pendingLeadPlayerId

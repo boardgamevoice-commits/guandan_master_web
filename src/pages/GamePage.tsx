@@ -14,6 +14,7 @@ export function GamePage() {
   const session = useGameStore((state) => state.session);
   const roundDraft = useGameStore((state) => state.roundDraft);
   const createSession = useGameStore((state) => state.createSession);
+  const setOpeningLeadPlayer = useGameStore((state) => state.setOpeningLeadPlayer);
   const toggleRankPlayer = useGameStore((state) => state.toggleRankPlayer);
   const undoLastRank = useGameStore((state) => state.undoLastRank);
   const resetRoundDraft = useGameStore((state) => state.resetRoundDraft);
@@ -76,6 +77,7 @@ export function GamePage() {
     return [pendingRound.ranks[0]!];
   }, [pendingRound]);
   const gameEnded = Boolean(session.rounds[session.rounds.length - 1]?.acePassed);
+  const shouldChooseOpeningLead = session.rounds.length === 0;
   const rankingLocked = Boolean(gameEnded || (pendingRound && pendingTribute));
 
   useEffect(() => {
@@ -143,6 +145,30 @@ export function GamePage() {
         />
 
         <div className="space-y-4 lg:sticky lg:top-3">
+          {!pendingRound && shouldChooseOpeningLead && (
+            <div className="space-y-3 rounded-2xl border border-sky-300 bg-sky-50 p-4 text-sm dark:border-sky-700 dark:bg-sky-950/30">
+              <p className="font-medium">首局先出牌</p>
+              <p className="text-xs text-neutral-500">点击昵称直接选择首局领出玩家</p>
+              <div className="grid grid-cols-2 gap-2">
+                {session.players.map((player) => (
+                  <button
+                    key={player.id}
+                    type="button"
+                    className={[
+                      'rounded-lg border px-3 py-2 text-left text-sm',
+                      session.currentLeadPlayerId === player.id
+                        ? 'border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-900/40'
+                        : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900',
+                    ].join(' ')}
+                    onClick={() => setOpeningLeadPlayer(player.id)}
+                  >
+                    {displayName(player)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {pendingRound && pendingTribute && (
             <div className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/30">
               <p className="font-medium">

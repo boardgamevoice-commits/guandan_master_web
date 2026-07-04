@@ -55,6 +55,8 @@ export interface GameSession {
   playingTeam: Team;
   /** 本局先出牌方（台主）；TeamScoreCard 高亮 */
   currentDealer: Team;
+  /** 本局首圈领出玩家 */
+  currentLeadPlayerId: string;
   houseRules: HouseRules;
   rounds: GameRoundRecord[];
   pendingTributeReview: PendingTributeReview | null;
