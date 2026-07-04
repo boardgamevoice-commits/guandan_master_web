@@ -11,6 +11,7 @@ interface RankPickerProps {
   onTogglePlayer: (playerId: string) => void;
   onUndoLast: () => void;
   onReset: () => void;
+  disabled?: boolean;
 }
 
 export function RankPicker({
@@ -19,6 +20,7 @@ export function RankPicker({
   onTogglePlayer,
   onUndoLast,
   onReset,
+  disabled = false,
 }: RankPickerProps) {
   const selectedCount = countFilledRanks(ranks);
   const isComplete = selectedCount === 4;
@@ -36,7 +38,9 @@ export function RankPicker({
       </p>
 
       <div className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
-        {isComplete
+        {disabled
+          ? '请先确认上一局进贡/抗贡，再录入本局名次'
+          : isComplete
           ? '名次已录入完成，可确认进贡信息'
           : `已录入 ${selectedCount}/4，下一位：${RANK_LABELS[selectedCount]}`}
       </div>
@@ -52,12 +56,13 @@ export function RankPicker({
               key={player.id}
               type="button"
               onClick={() => onTogglePlayer(player.id)}
+              disabled={disabled}
               aria-pressed={isSelected}
               aria-label={`${displayName(player)}，${player.position}，${
                 isSelected ? '已选中' : '未排名'
               }`}
               className={[
-                'min-h-11 rounded-xl border px-3 py-3 text-left text-sm transition',
+                'min-h-11 rounded-xl border px-3 py-3 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50',
                 teamBorder,
                 isSelected
                   ? 'border-our bg-our/10 text-neutral-900 dark:text-neutral-100'
@@ -94,7 +99,7 @@ export function RankPicker({
           type="button"
           className="text-neutral-500 underline disabled:opacity-40"
           onClick={onUndoLast}
-          disabled={selectedCount === 0}
+          disabled={disabled || selectedCount === 0}
         >
           撤销上一步
         </button>
@@ -102,7 +107,7 @@ export function RankPicker({
           type="button"
           className="text-neutral-500 underline disabled:opacity-40"
           onClick={onReset}
-          disabled={selectedCount === 0}
+          disabled={disabled || selectedCount === 0}
         >
           清空重选
         </button>

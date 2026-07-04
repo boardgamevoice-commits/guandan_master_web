@@ -3,7 +3,7 @@ import { applyLevelChange, calculateLevelChange } from '@/domain/levelEngine';
 import { calculateTribute } from '@/domain/tributeEngine';
 import type { GameRoundRecord, GameSession, Player, Team } from '@/types/game';
 import type { RoundDraft } from '@/types/round';
-import { displayName, teamLabel } from '@/utils/format';
+import { teamLabel } from '@/utils/format';
 
 export interface RoundPreview {
   roundNumber: number;
@@ -36,7 +36,7 @@ export function previewRound(session: GameSession, draft: RoundDraft): RoundPrev
     rankedIds,
     session.players,
     change.resultType,
-    draft.isAntiTribute,
+    false,
   );
 
   const leader = findPlayerById(session.players, tribute.leadPlayerId);
@@ -59,9 +59,7 @@ export function previewRound(session: GameSession, draft: RoundDraft): RoundPrev
       player: findPlayerById(session.players, playerId),
     })),
     tributeLines: tribute.relations.map((relation) => relation.label),
-    antiTributeMessage: tribute.isAntiTribute
-      ? `抗贡！${displayName(leader)} 领出`
-      : null,
+    antiTributeMessage: null,
     resultLabel: `${winnerLabel}${change.resultType === 'double_down' ? '双下胜' : '胜'} (+${delta})`,
     nextOurLevel: nextLevels.ourLevel,
     nextOpponentLevel: nextLevels.opponentLevel,
@@ -85,7 +83,7 @@ export function settleRound(
     date: new Date().toISOString(),
     ranks: [...rankedIds],
     resultType: calculateLevelChange(rankedIds, session.players).resultType,
-    isAntiTribute: draft.isAntiTribute,
+    isAntiTribute: false,
     currentWildCard: getCurrentWildCard(session),
     ourLevelSnapshot: preview.nextOurLevel,
     opponentLevelSnapshot: preview.nextOpponentLevel,
@@ -101,6 +99,7 @@ export function settleRound(
       playingTeam: preview.winner,
       currentDealer: preview.nextDealer,
       rounds: [...session.rounds, roundRecord],
+      pendingTributeReview: null,
       updatedAt: new Date().toISOString(),
     },
   };
@@ -125,6 +124,7 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
     opponentLevel: session.initialOpponentLevel,
     playingTeam: session.initialDealerTeam,
     currentDealer: session.initialDealerTeam,
+    pendingTributeReview: null,
   };
 
   const replayedRounds = rounds.map((round, index) => {

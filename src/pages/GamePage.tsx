@@ -3,11 +3,12 @@ import { Navigate } from 'react-router-dom';
 import { RankPicker } from '@/components/ranking/RankPicker';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { RoundConfirmModal } from '@/components/shared/RoundConfirmModal';
+import { calculateTribute } from '@/domain/tributeEngine';
 import { getAntiTributeConfirmMessage, isAntiTributeEnabled } from '@/domain/houseRules';
 import { levelToLabel } from '@/types/game';
 import { getRoundPreview, useGameStore } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
-import { teamLabel } from '@/utils/format';
+import { displayName, teamLabel } from '@/utils/format';
 
 export function GamePage() {
   const session = useGameStore((state) => state.session);
@@ -15,7 +16,8 @@ export function GamePage() {
   const toggleRankPlayer = useGameStore((state) => state.toggleRankPlayer);
   const undoLastRank = useGameStore((state) => state.undoLastRank);
   const resetRoundDraft = useGameStore((state) => state.resetRoundDraft);
-  const setAntiTribute = useGameStore((state) => state.setAntiTribute);
+  const setPendingAntiTribute = useGameStore((state) => state.setPendingAntiTribute);
+  const confirmPendingTributeReview = useGameStore((state) => state.confirmPendingTributeReview);
   const confirmRound = useGameStore((state) => state.confirmRound);
   const undoLastRound = useGameStore((state) => state.undoLastRound);
   const showAntiTributeDialog = useUiStore((state) => state.gameAntiTributeDialogOpen);
@@ -35,6 +37,24 @@ export function GamePage() {
 
   const playingLevel =
     session.playingTeam === 'our' ? session.ourLevel : session.opponentLevel;
+  const pendingReview = session.pendingTributeReview;
+  const pendingRound = useMemo(() => {
+    if (!pendingReview) return null;
+    return session.rounds.find((round) => round.id === pendingReview.roundId) ?? null;
+  }, [pendingReview, session.rounds]);
+  const pendingTribute = useMemo(() => {
+    if (!pendingReview || !pendingRound) return null;
+    return calculateTribute(
+      pendingRound.ranks,
+      session.players,
+      pendingRound.resultType,
+      pendingReview.isAntiTribute,
+    );
+  }, [pendingReview, pendingRound, session.players]);
+  const pendingLeader = pendingTribute
+    ? session.players.find((player) => player.id === pendingTribute.leadPlayerId)
+    : null;
+  const rankingLocked = Boolean(pendingRound && pendingTribute);
 
   useEffect(() => {
     const key = 'guandan-master:guide:game:v1';
@@ -87,7 +107,51 @@ export function GamePage() {
         onTogglePlayer={toggleRankPlayer}
         onUndoLast={undoLastRank}
         onReset={resetRoundDraft}
+        disabled={rankingLocked}
       />
+
+      {pendingRound && pendingTribute && (
+        <div className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/30">
+          <p className="font-medium">
+            上局进贡确认（第 {pendingRound.roundNumber} 局）
+          </p>
+          {pendingTribute.isAntiTribute ? (
+            <p className="text-our">{`抗贡！${
+              pendingLeader ? displayName(pendingLeader) : '头游'
+            } 领出`}</p>
+          ) : (
+            pendingTribute.relations.map((relation) => (
+              <p key={relation.label} className="text-neutral-600 dark:text-neutral-300">
+                · {relation.label}
+              </p>
+            ))
+          )}
+          {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={pendingReview?.isAntiTribute ?? false}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  if (!checked) {
+                    setPendingAntiTribute(false);
+                    return;
+                  }
+                  openAntiTributeDialog();
+                }}
+              />
+              抗贡（下一局摸牌后确认）
+            </label>
+          )}
+          <button
+            type="button"
+            className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white"
+            onClick={confirmPendingTributeReview}
+          >
+            确认上局进贡，开始录入本局名次
+          </button>
+        </div>
+      )}
 
       <div className="space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
         <p className="font-medium">进贡指引（文字）</p>
@@ -103,21 +167,9 @@ export function GamePage() {
               ))
             )}
             {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={roundDraft.isAntiTribute}
-                  onChange={(event) => {
-                    const checked = event.target.checked;
-                    if (!checked) {
-                      setAntiTribute(false);
-                      return;
-                    }
-                    openAntiTributeDialog();
-                  }}
-                />
-                抗贡
-              </label>
+              <p className="text-xs text-neutral-500">
+                抗贡在下一局开始后确认（看牌后再勾选）
+              </p>
             )}
           </>
         ) : (
@@ -129,9 +181,9 @@ export function GamePage() {
         type="button"
         className={[
           'w-full rounded-xl py-3 text-sm font-semibold text-white',
-          preview ? 'bg-our' : 'bg-neutral-300 dark:bg-neutral-700',
+          preview && !rankingLocked ? 'bg-our' : 'bg-neutral-300 dark:bg-neutral-700',
         ].join(' ')}
-        disabled={!preview}
+        disabled={!preview || rankingLocked}
         onClick={() => setShowConfirmModal(true)}
       >
         确认并进入下局
@@ -164,7 +216,7 @@ export function GamePage() {
         message={getAntiTributeConfirmMessage(session.houseRules.antiTributePreset)}
         onCancel={closeAntiTributeDialog}
         onConfirm={() => {
-          setAntiTribute(true);
+          setPendingAntiTribute(true);
           closeAntiTributeDialog();
         }}
       />

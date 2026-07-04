@@ -32,11 +32,12 @@ export function RoundConfirmModal({
         </div>
 
         <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-800">
-          {preview.antiTributeMessage ? (
-            <p>{preview.antiTributeMessage}</p>
-          ) : (
-            preview.tributeLines.map((line) => <p key={line}>· {line}</p>)
-          )}
+          {preview.tributeLines.map((line) => (
+            <p key={line}>· {line}</p>
+          ))}
+          <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+            抗贡在下一局开始后确认（看牌后再勾选）。
+          </p>
         </div>
 
         <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">

@@ -7,10 +7,12 @@ import {
   undoLastRound as undoLastRoundSession,
   type RoundPreview,
 } from '@/domain/roundSettlement';
+import { isAntiTributeEnabled } from '@/domain/houseRules';
 import type { AntiTributePresetId } from '@/types/houseRules';
 import type {
   GameSession,
   HouseRules,
+  PendingTributeReview,
   Player,
   Position,
   Team,
@@ -39,7 +41,8 @@ interface GameState {
   toggleRankPlayer: (playerId: string) => void;
   undoLastRank: () => void;
   resetRoundDraft: () => void;
-  setAntiTribute: (value: boolean) => void;
+  setPendingAntiTribute: (value: boolean) => void;
+  confirmPendingTributeReview: () => void;
   confirmRound: () => void;
   undoLastRound: () => void;
   clearHistory: () => void;
@@ -77,6 +80,14 @@ function ranksReady(ranks: Array<string | null>): ranks is string[] {
   return ranks.every((rank) => typeof rank === 'string');
 }
 
+function ensurePendingReview(
+  rounds: GameSession['rounds'],
+  pending: PendingTributeReview | null,
+): PendingTributeReview | null {
+  if (!pending) return null;
+  return rounds.some((round) => round.id === pending.roundId) ? pending : null;
+}
+
 export function getRoundPreview(
   session: GameSession | null,
   draft: RoundDraft,
@@ -89,7 +100,7 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       session: null,
-      roundDraft: { ranks: [...EMPTY_RANKS], isAntiTribute: false },
+      roundDraft: { ranks: [...EMPTY_RANKS] },
       createSession: (input) => {
         const now = new Date().toISOString();
         const session: GameSession = {
@@ -107,13 +118,14 @@ export const useGameStore = create<GameState>()(
             input.aceRequiresDoubleDown,
           ),
           rounds: [],
+          pendingTributeReview: null,
           createdAt: now,
           updatedAt: now,
         };
 
         set({
           session,
-          roundDraft: { ranks: [...EMPTY_RANKS], isAntiTribute: false },
+          roundDraft: { ranks: [...EMPTY_RANKS] },
         });
       },
       toggleRankPlayer: (playerId) =>
@@ -135,22 +147,55 @@ export const useGameStore = create<GameState>()(
           roundDraft: {
             ...state.roundDraft,
             ranks: [...EMPTY_RANKS],
-            isAntiTribute: false,
           },
         })),
-      setAntiTribute: (value) =>
+      setPendingAntiTribute: (value) =>
         set((state) => ({
-          roundDraft: { ...state.roundDraft, isAntiTribute: value },
+          session: state.session?.pendingTributeReview
+            ? {
+                ...state.session,
+                pendingTributeReview: {
+                  ...state.session.pendingTributeReview,
+                  isAntiTribute: value,
+                },
+              }
+            : state.session,
         })),
+      confirmPendingTributeReview: () =>
+        set((state) => {
+          if (!state.session || !state.session.pendingTributeReview) return state;
+          const pending = state.session.pendingTributeReview;
+          const rounds = state.session.rounds.map((round) =>
+            round.id === pending.roundId
+              ? { ...round, isAntiTribute: pending.isAntiTribute }
+              : round,
+          );
+          return {
+            session: {
+              ...state.session,
+              rounds,
+              pendingTributeReview: null,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+        }),
       confirmRound: () => {
         const state = get();
         if (!state.session) return;
         const settled = settleRound(state.session, state.roundDraft);
         if (!settled) return;
 
+        const pendingTributeReview = isAntiTributeEnabled(
+          settled.nextSession.houseRules.antiTributePreset,
+        )
+          ? { roundId: settled.roundRecord.id, isAntiTribute: false }
+          : null;
         set({
-          session: settled.nextSession,
-          roundDraft: { ranks: [...EMPTY_RANKS], isAntiTribute: false },
+          session: {
+            ...settled.nextSession,
+            pendingTributeReview,
+          },
+          roundDraft: { ranks: [...EMPTY_RANKS] },
         });
       },
       undoLastRound: () =>
@@ -158,8 +203,15 @@ export const useGameStore = create<GameState>()(
           if (!state.session) return state;
           const session = undoLastRoundSession(state.session);
           if (!session) return state;
+          const pendingTributeReview = ensurePendingReview(
+            session.rounds,
+            session.pendingTributeReview,
+          );
           return {
-            session,
+            session: {
+              ...session,
+              pendingTributeReview,
+            },
           };
         }),
       clearHistory: () =>
@@ -173,6 +225,7 @@ export const useGameStore = create<GameState>()(
               opponentLevel: state.session.initialOpponentLevel,
               playingTeam: state.session.initialDealerTeam,
               currentDealer: state.session.initialDealerTeam,
+              pendingTributeReview: null,
               updatedAt: new Date().toISOString(),
             },
           };
@@ -182,13 +235,48 @@ export const useGameStore = create<GameState>()(
           if (!state.session) return state;
           const session = deleteRoundSession(state.session, roundId);
           if (!session) return state;
-          return { session };
+          const pendingTributeReview = ensurePendingReview(
+            session.rounds,
+            session.pendingTributeReview,
+          );
+          return {
+            session: {
+              ...session,
+              pendingTributeReview,
+            },
+          };
         }),
     }),
     {
       name: 'guandan-master:v1',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState: unknown, version) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState as {
+            session: GameSession | null;
+            roundDraft: RoundDraft;
+          };
+        }
+        const current = persistedState as {
+          session?: GameSession | null;
+          roundDraft?: { ranks?: Array<string | null> };
+        };
+        const migratedSession = current.session
+          ? {
+              ...current.session,
+              pendingTributeReview:
+                version < 2 ? null : current.session.pendingTributeReview ?? null,
+            }
+          : null;
+        return {
+          ...current,
+          session: migratedSession,
+          roundDraft: {
+            ranks: current.roundDraft?.ranks ?? [...EMPTY_RANKS],
+          },
+        };
+      },
       partialize: (state) => ({
         session: state.session,
         roundDraft: state.roundDraft,

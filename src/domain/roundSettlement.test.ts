@@ -25,13 +25,14 @@ function createSession(): GameSession {
       aceRequiresDoubleDown: true,
     },
     rounds: [],
+    pendingTributeReview: null,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-function draft(ranks: string[], isAntiTribute = false): RoundDraft {
-  return { ranks, isAntiTribute };
+function draft(ranks: string[]): RoundDraft {
+  return { ranks };
 }
 
 describe('undoLastRound', () => {

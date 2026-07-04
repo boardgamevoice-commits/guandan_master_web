@@ -29,6 +29,11 @@ export interface GameRoundRecord {
   opponentLevelSnapshot: number;
 }
 
+export interface PendingTributeReview {
+  roundId: string;
+  isAntiTribute: boolean;
+}
+
 export interface HouseRules {
   aceRequiresDoubleDown: boolean;
   antiTributePreset: AntiTributePresetId;
@@ -49,6 +54,7 @@ export interface GameSession {
   currentDealer: Team;
   houseRules: HouseRules;
   rounds: GameRoundRecord[];
+  pendingTributeReview: PendingTributeReview | null;
   createdAt: string;
   updatedAt: string;
 }
