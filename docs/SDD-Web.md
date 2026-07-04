@@ -211,8 +211,8 @@ src/
 /** 级数 2–14，14 = A */
 type Level = number;
 
-/** 当前局级牌（逢人配）：与领先方级数对应 */
-// currentWildCard = session 中领先方（台主方）的 level 数值
+/** 当前局级牌（逢人配）：与打级方级数对应 */
+// currentWildCard = session 中 playingTeam 对应的 level 数值
 
 interface GameSession {
   id: string;
@@ -518,7 +518,7 @@ interface GameState {
 
 // Selectors（派生）
 // - currentRoundNumber = rounds.length + 1
-// - wildCardLevel = currentDealer 对应 team 的 level
+// - wildCardLevel = playingTeam 对应 team 的 level
 // - canConfirmRound = ranks.length === 4 && !pendingTributeReview
 ```
 
@@ -532,9 +532,13 @@ interface UIState {
     roundDetail: string | null;  // roundId
   };
   hasSeenOnboarding: boolean;
+  fontScale: number; // 100–150，默认 110，持久化
 
   openRoundConfirm: () => void;
   closeRoundConfirm: () => void;
+  increaseFontScale: () => void;
+  decreaseFontScale: () => void;
+  resetFontScale: () => void;
   // ...
 }
 ```
