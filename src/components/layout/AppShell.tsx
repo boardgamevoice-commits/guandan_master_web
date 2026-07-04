@@ -20,7 +20,7 @@ export function AppShell() {
       : '线下记分 · 进贡指引';
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col lg:max-w-6xl">
       <header className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
         <h1 className="text-lg font-semibold tracking-tight">掼蛋大师</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -28,7 +28,7 @@ export function AppShell() {
         </p>
       </header>
 
-      <main className="flex-1 px-4 py-6">
+      <main className="flex-1 px-4 py-4 lg:px-6 lg:py-5">
         <Outlet />
       </main>
       <Toast message={toastMessage} />

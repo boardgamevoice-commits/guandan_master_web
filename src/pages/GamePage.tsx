@@ -64,16 +64,16 @@ export function GamePage() {
   }, [session.rounds.length]);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 lg:space-y-5">
       <div className="rounded-2xl border border-dealer/30 bg-dealer/10 px-4 py-3 text-center text-sm font-medium text-amber-900 dark:text-amber-100">
         👑 第 {session.rounds.length + 1} 局：{teamLabel(session.playingTeam)}打{' '}
         {levelToLabel(playingLevel)}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:gap-4">
         <div
           className={[
-            'rounded-2xl p-4',
+            'rounded-2xl p-4 lg:p-5',
             session.currentDealer === 'our'
               ? 'border-2 border-our bg-our/10 shadow-sm'
               : 'border border-neutral-200 opacity-70 dark:border-neutral-800',
@@ -82,11 +82,13 @@ export function GamePage() {
           <p className="text-xs text-neutral-500">
             我方 · 南北{session.currentDealer === 'our' ? ' · 先出牌' : ''}
           </p>
-          <p className="mt-1 text-3xl font-bold text-our">{levelToLabel(session.ourLevel)}</p>
+          <p className="mt-1 text-5xl font-bold leading-none text-our lg:text-6xl">
+            {levelToLabel(session.ourLevel)}
+          </p>
         </div>
         <div
           className={[
-            'rounded-2xl p-4',
+            'rounded-2xl p-4 lg:p-5',
             session.currentDealer === 'opponent'
               ? 'border-2 border-opponent bg-opponent/10 shadow-sm'
               : 'border border-neutral-200 opacity-70 dark:border-neutral-800',
@@ -95,108 +97,112 @@ export function GamePage() {
           <p className="text-xs text-neutral-500">
             对方 · 东西{session.currentDealer === 'opponent' ? ' · 先出牌' : ''}
           </p>
-          <p className="mt-1 text-3xl font-bold text-opponent">
+          <p className="mt-1 text-5xl font-bold leading-none text-opponent lg:text-6xl">
             {levelToLabel(session.opponentLevel)}
           </p>
         </div>
       </div>
 
-      <RankPicker
-        players={session.players}
-        ranks={roundDraft.ranks}
-        onTogglePlayer={toggleRankPlayer}
-        onUndoLast={undoLastRank}
-        onReset={resetRoundDraft}
-        disabled={rankingLocked}
-      />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-5">
+        <RankPicker
+          players={session.players}
+          ranks={roundDraft.ranks}
+          onTogglePlayer={toggleRankPlayer}
+          onUndoLast={undoLastRank}
+          onReset={resetRoundDraft}
+          disabled={rankingLocked}
+        />
 
-      {pendingRound && pendingTribute && (
-        <div className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/30">
-          <p className="font-medium">
-            上局进贡确认（第 {pendingRound.roundNumber} 局）
-          </p>
-          {pendingTribute.isAntiTribute ? (
-            <p className="text-our">{`抗贡！${
-              pendingLeader ? displayName(pendingLeader) : '头游'
-            } 领出`}</p>
-          ) : (
-            pendingTribute.relations.map((relation) => (
-              <p key={relation.label} className="text-neutral-600 dark:text-neutral-300">
-                · {relation.label}
+        <div className="space-y-4 lg:sticky lg:top-3">
+          {pendingRound && pendingTribute && (
+            <div className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/30">
+              <p className="font-medium">
+                上局进贡确认（第 {pendingRound.roundNumber} 局）
               </p>
-            ))
+              {pendingTribute.isAntiTribute ? (
+                <p className="text-our">{`抗贡！${
+                  pendingLeader ? displayName(pendingLeader) : '头游'
+                } 领出`}</p>
+              ) : (
+                pendingTribute.relations.map((relation) => (
+                  <p key={relation.label} className="text-neutral-600 dark:text-neutral-300">
+                    · {relation.label}
+                  </p>
+                ))
+              )}
+              {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={pendingReview?.isAntiTribute ?? false}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      if (!checked) {
+                        setPendingAntiTribute(false);
+                        return;
+                      }
+                      openAntiTributeDialog();
+                    }}
+                  />
+                  抗贡（下一局摸牌后确认）
+                </label>
+              )}
+              <button
+                type="button"
+                className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white"
+                onClick={confirmPendingTributeReview}
+              >
+                确认上局进贡，开始录入本局名次
+              </button>
+            </div>
           )}
-          {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={pendingReview?.isAntiTribute ?? false}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  if (!checked) {
-                    setPendingAntiTribute(false);
-                    return;
-                  }
-                  openAntiTributeDialog();
-                }}
-              />
-              抗贡（下一局摸牌后确认）
-            </label>
-          )}
+
+          <div className="space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
+            <p className="font-medium">进贡指引（文字）</p>
+            {preview ? (
+              <>
+                {preview.antiTributeMessage ? (
+                  <p className="text-our">{preview.antiTributeMessage}</p>
+                ) : (
+                  preview.tributeLines.map((line) => (
+                    <p key={line} className="text-neutral-600 dark:text-neutral-300">
+                      · {line}
+                    </p>
+                  ))
+                )}
+                {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
+                  <p className="text-xs text-neutral-500">
+                    抗贡在下一局开始后确认（看牌后再勾选）
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-neutral-500">录入完整 1–4 名后显示进贡信息</p>
+            )}
+          </div>
+
           <button
             type="button"
-            className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white"
-            onClick={confirmPendingTributeReview}
+            className={[
+              'w-full rounded-xl py-3 text-sm font-semibold text-white',
+              preview && !rankingLocked ? 'bg-our' : 'bg-neutral-300 dark:bg-neutral-700',
+            ].join(' ')}
+            disabled={!preview || rankingLocked}
+            onClick={() => setShowConfirmModal(true)}
           >
-            确认上局进贡，开始录入本局名次
+            确认并进入下局
+          </button>
+
+          <button
+            type="button"
+            className="w-full rounded-xl border border-neutral-200 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+            onClick={undoLastRound}
+            disabled={session.rounds.length === 0}
+          >
+            撤回上一局
           </button>
         </div>
-      )}
-
-      <div className="space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
-        <p className="font-medium">进贡指引（文字）</p>
-        {preview ? (
-          <>
-            {preview.antiTributeMessage ? (
-              <p className="text-our">{preview.antiTributeMessage}</p>
-            ) : (
-              preview.tributeLines.map((line) => (
-                <p key={line} className="text-neutral-600 dark:text-neutral-300">
-                  · {line}
-                </p>
-              ))
-            )}
-            {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
-              <p className="text-xs text-neutral-500">
-                抗贡在下一局开始后确认（看牌后再勾选）
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="text-neutral-500">录入完整 1–4 名后显示进贡信息</p>
-        )}
       </div>
-
-      <button
-        type="button"
-        className={[
-          'w-full rounded-xl py-3 text-sm font-semibold text-white',
-          preview && !rankingLocked ? 'bg-our' : 'bg-neutral-300 dark:bg-neutral-700',
-        ].join(' ')}
-        disabled={!preview || rankingLocked}
-        onClick={() => setShowConfirmModal(true)}
-      >
-        确认并进入下局
-      </button>
-
-      <button
-        type="button"
-        className="w-full rounded-xl border border-neutral-200 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
-        onClick={undoLastRound}
-        disabled={session.rounds.length === 0}
-      >
-        撤回上一局
-      </button>
 
       {showConfirmModal && preview && (
         <RoundConfirmModal

@@ -247,6 +247,11 @@ interface GameRoundRecord {
   ourLevelSnapshot: number;    // 结算后
   opponentLevelSnapshot: number;
 }
+
+interface PendingTributeReview {
+  roundId: string;
+  isAntiTribute: boolean;
+}
 ```
 
 ### 4.2 回合草稿（内存态，不持久化直到确认）
@@ -254,17 +259,8 @@ interface GameRoundRecord {
 ```typescript
 // src/types/round.ts — 待建
 
-type RoundPhase =
-  | 'ranking'      // 录入 1–4 名
-  | 'tribute'      // 展示进贡 / 可选抗贡
-  | 'confirm';     // 等待下局确认弹窗
-
 interface RoundDraft {
-  phase: RoundPhase;
-  rankedPlayerIds: string[];   // 0–4 个，录入中
-  isAntiTribute: boolean;
-  /** 同名次分组：playerId → rank（支持平局） */
-  rankMap: Record<string, number>;
+  ranks: Array<string | null>; // 长度 4，index=名次-1
 }
 ```
 
@@ -310,7 +306,7 @@ interface ValidationResult {
 // src/utils/storage.ts
 
 const STORAGE_KEY = 'guandan-master:v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 interface PersistedState {
   schemaVersion: number;
@@ -325,8 +321,8 @@ interface PersistedState {
 
 | 版本 | 变更 | 迁移函数 |
 |------|------|----------|
-| v1 | 初始 schema | — |
-| v2（预留） | 新增字段 | `migrateV1toV2()` 补默认值 |
+| v1 | 初始 schema（`roundDraft` 含 `isAntiTribute`） | — |
+| v2 | 新增 `pendingTributeReview`，`roundDraft` 仅保留 `ranks` | `migrateV1toV2()` |
 
 读写流程：
 
@@ -370,13 +366,13 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> ranking: 新局开始
+    ranking --> pendingReview: 下一局开始且有上局待确认
+    pendingReview --> ranking: 确认上局进贡/抗贡
     ranking --> ranking: 点击玩家赋名次
     ranking --> ranking: 撤销重选
-    ranking --> tribute: 4 名录入完成
-    tribute --> tribute: 勾选/取消抗贡
-    tribute --> confirm: 点击「确认并进入下局」
+    ranking --> confirm: 点击「确认并进入下局」
     confirm --> ranking: 弹窗确认 → 结算
-    confirm --> tribute: 弹窗取消
+    confirm --> ranking: 弹窗取消
 ```
 
 ```mermaid
@@ -384,22 +380,22 @@ sequenceDiagram
     participant U as User
     participant G as GamePage
     participant R as RoundDraft
+    participant P as PendingTributeReview
     participant M as RoundConfirmModal
     participant E as roundSettlement
     participant S as gameStore
 
-    U->>G: 按顺序点击四方阵
-    G->>R: appendRank(playerId)
-    Note over R: 4 名满 → phase=tribute
-    G->>G: 展示 TributeArrows
-    U->>G: 可选勾选抗贡 → ConfirmDialog
+    U->>G: 按顺序点击玩家卡片
+    G->>R: toggleRankPlayer(playerId)
     U->>G: 点击「确认并进入下局」
     G->>M: 打开弹窗（摘要预览）
     U->>M: 确认
     M->>E: settleRound(draft, session)
     E->>E: calculateLevelChange + applyLevelChange + aceRules
-    E-->>S: GameRoundRecord + 更新 level/dealer
-    S->>S: 清空 RoundDraft，roundNumber++
+    E-->>S: GameRoundRecord + 更新 level/dealer + 初始化 pendingReview
+    Note over U,G: 下一局发牌后（看牌）
+    U->>G: 勾选抗贡（可选）并确认上局进贡
+    G->>P: confirmPendingTributeReview()
     G->>G: 刷新 UI
 ```
 
@@ -408,25 +404,25 @@ sequenceDiagram
 | 操作 | 行为 |
 |------|------|
 | 单击未排名玩家 | 赋予下一个名次（1→2→3→4） |
-| 单击已排名玩家 | 无操作（或提示「已排名」） |
+| 单击已排名玩家 | 取消该玩家名次，后续名次紧凑前移 |
 | 长按未排名玩家（P1） | 与下一点击者同名次（平局） |
-| 撤销 | 清空 `rankedPlayerIds`，回到 `ranking` |
+| 撤销 | 撤销上一步或清空重选 |
 
-### 5.3 抗贡确认流程
+### 5.3 抗贡确认流程（下一局开始后）
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant T as TributePanel
+    participant T as PendingTributePanel
     participant C as ConfirmDialog
     participant H as houseRules
 
-    U->>T: 勾选「抗贡」
+    U->>T: 下一局开始后勾选「抗贡」
     T->>H: getAntiTributeConfirmMessage(preset)
     T->>C: 打开确认弹窗
     alt 用户确认
-        C->>T: isAntiTribute = true
-        T->>T: 隐藏箭头，显示抗贡文案
+        C->>T: pendingReview.isAntiTribute = true
+        T->>T: 确认上局进贡并写入 roundRecord
     else 用户取消
         C->>T: 保持未勾选
     end
@@ -441,7 +437,7 @@ interface RoundConfirmPreview {
   roundNumber: number;
   ranks: Array<{ player: Player; rank: number }>;
   resultLabel: string;       // 「南北队双下胜 (+3)」
-  tributeSummary: string;    // 进贡文案或「抗贡 · 张三领出」
+  tributeSummary: string;    // 进贡文案（抗贡在下一局确认）
   levelPreview: {
     our: { from: number; to: number };
     opponent: { from: number; to: number };
@@ -511,9 +507,10 @@ interface GameState {
   updateSetup: (partial: Partial<SetupInput>) => void;
   resetSession: () => void;
 
-  appendRank: (playerId: string) => void;
-  undoRanking: () => void;
-  setAntiTribute: (value: boolean) => void;
+  toggleRankPlayer: (playerId: string) => void;
+  undoLastRank: () => void;
+  setPendingAntiTribute: (value: boolean) => void;
+  confirmPendingTributeReview: () => void;
   confirmRound: () => GameRoundRecord;   // 弹窗确认后调用
   deleteRound: (roundId: string) => void;
   clearHistory: () => void;
@@ -522,7 +519,7 @@ interface GameState {
 // Selectors（派生）
 // - currentRoundNumber = rounds.length + 1
 // - wildCardLevel = currentDealer 对应 team 的 level
-// - canConfirmRound = draft.phase === 'tribute' && ranks.length === 4
+// - canConfirmRound = ranks.length === 4 && !pendingTributeReview
 ```
 
 ### 6.2 uiStore（不持久化或轻量持久化）
@@ -547,7 +544,7 @@ interface UIState {
 | 页面 | 读取 | 写入 |
 |------|------|------|
 | SetupPage | `session`, `houseRules` | `createSession`, `updateSetup` |
-| GamePage | `session`, `roundDraft`, selectors | `appendRank`, `setAntiTribute`, `confirmRound` |
+| GamePage | `session`, `roundDraft`, selectors | `toggleRankPlayer`, `setPendingAntiTribute`, `confirmPendingTributeReview`, `confirmRound` |
 | ValidatorPage | `wildCardLevel` | 本地 `selectedCards`（uiStore 或 page state） |
 | HistoryPage | `session.rounds` | `deleteRound`, `clearHistory` |
 
