@@ -8,7 +8,7 @@ import { getAntiTributeConfirmMessage, isAntiTributeEnabled } from '@/domain/hou
 import { levelToLabel } from '@/types/game';
 import { getRoundPreview, useGameStore } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
-import { displayName, teamLabel } from '@/utils/format';
+import { displayName } from '@/utils/format';
 
 export function GamePage() {
   const session = useGameStore((state) => state.session);
@@ -33,6 +33,22 @@ export function GamePage() {
   const preview = useMemo(
     () => getRoundPreview(session, roundDraft),
     [roundDraft, session],
+  );
+  const ourTeamNames = useMemo(
+    () =>
+      session.players
+        .filter((player) => player.team === 'our')
+        .map((player) => displayName(player))
+        .join(' / '),
+    [session.players],
+  );
+  const opponentTeamNames = useMemo(
+    () =>
+      session.players
+        .filter((player) => player.team === 'opponent')
+        .map((player) => displayName(player))
+        .join(' / '),
+    [session.players],
   );
 
   const playingLevel =
@@ -66,7 +82,8 @@ export function GamePage() {
   return (
     <section className="space-y-4 lg:space-y-5">
       <div className="rounded-2xl border border-dealer/30 bg-dealer/10 px-4 py-3 text-center text-sm font-medium text-amber-900 dark:text-amber-100">
-        👑 第 {session.rounds.length + 1} 局：{teamLabel(session.playingTeam)}打{' '}
+        👑 第 {session.rounds.length + 1} 局：
+        {session.playingTeam === 'our' ? ourTeamNames : opponentTeamNames}打{' '}
         {levelToLabel(playingLevel)}
       </div>
 
@@ -79,10 +96,11 @@ export function GamePage() {
               : 'border border-neutral-200 opacity-70 dark:border-neutral-800',
           ].join(' ')}
         >
-          <p className="text-xs text-neutral-500">
-            我方 · 南北{session.currentDealer === 'our' ? ' · 先出牌' : ''}
+          <p className="text-center text-xs text-neutral-500">
+            {ourTeamNames}
+            {session.currentDealer === 'our' ? ' · 先出牌' : ''}
           </p>
-          <p className="mt-1 text-5xl font-bold leading-none text-our lg:text-6xl">
+          <p className="mt-1 text-center text-5xl font-bold leading-none text-our lg:text-6xl">
             {levelToLabel(session.ourLevel)}
           </p>
         </div>
@@ -94,10 +112,11 @@ export function GamePage() {
               : 'border border-neutral-200 opacity-70 dark:border-neutral-800',
           ].join(' ')}
         >
-          <p className="text-xs text-neutral-500">
-            对方 · 东西{session.currentDealer === 'opponent' ? ' · 先出牌' : ''}
+          <p className="text-center text-xs text-neutral-500">
+            {opponentTeamNames}
+            {session.currentDealer === 'opponent' ? ' · 先出牌' : ''}
           </p>
-          <p className="mt-1 text-5xl font-bold leading-none text-opponent lg:text-6xl">
+          <p className="mt-1 text-center text-5xl font-bold leading-none text-opponent lg:text-6xl">
             {levelToLabel(session.opponentLevel)}
           </p>
         </div>

@@ -60,7 +60,7 @@ export function RankPicker({
                 isSelected ? '已选中' : '未排名'
               }`}
               className={[
-                'min-h-11 rounded-lg border px-2 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50',
+                'min-h-11 rounded-lg border px-2 py-2 text-center text-xs transition disabled:cursor-not-allowed disabled:opacity-50',
                 teamBorder,
                 isSelected
                   ? 'border-our bg-our/10 text-neutral-900 dark:text-neutral-100'
