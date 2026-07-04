@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Toast } from '@/components/shared/Toast';
 import { useGameStore } from '@/stores/gameStore';
@@ -24,11 +25,15 @@ export function AppShell() {
       ? `第 ${session.rounds.length + 1} 局`
       : '线下记分 · 进贡指引';
 
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontScale}%`;
+    return () => {
+      document.documentElement.style.fontSize = '';
+    };
+  }, [fontScale]);
+
   return (
-    <div
-      className="mx-auto flex min-h-dvh w-full max-w-lg flex-col lg:max-w-6xl"
-      style={{ fontSize: `${fontScale}%` }}
-    >
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col lg:max-w-6xl">
       {!hideHeader && (
         <header className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
           <h1 className="text-lg font-semibold tracking-tight">掼蛋大师</h1>
