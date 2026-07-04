@@ -8,11 +8,12 @@ import { getAntiTributeConfirmMessage, isAntiTributeEnabled } from '@/domain/hou
 import { levelToLabel } from '@/types/game';
 import { getRoundPreview, useGameStore } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
-import { displayName } from '@/utils/format';
+import { displayName, teamPlayersLabel } from '@/utils/format';
 
 export function GamePage() {
   const session = useGameStore((state) => state.session);
   const roundDraft = useGameStore((state) => state.roundDraft);
+  const createSession = useGameStore((state) => state.createSession);
   const toggleRankPlayer = useGameStore((state) => state.toggleRankPlayer);
   const undoLastRank = useGameStore((state) => state.undoLastRank);
   const resetRoundDraft = useGameStore((state) => state.resetRoundDraft);
@@ -24,6 +25,7 @@ export function GamePage() {
   const openAntiTributeDialog = useUiStore((state) => state.openGameAntiTributeDialog);
   const closeAntiTributeDialog = useUiStore((state) => state.closeGameAntiTributeDialog);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
   if (!session) {
@@ -35,19 +37,11 @@ export function GamePage() {
     [roundDraft, session],
   );
   const ourTeamNames = useMemo(
-    () =>
-      session.players
-        .filter((player) => player.team === 'our')
-        .map((player) => displayName(player))
-        .join(' / '),
+    () => teamPlayersLabel(session.players, 'our'),
     [session.players],
   );
   const opponentTeamNames = useMemo(
-    () =>
-      session.players
-        .filter((player) => player.team === 'opponent')
-        .map((player) => displayName(player))
-        .join(' / '),
+    () => teamPlayersLabel(session.players, 'opponent'),
     [session.players],
   );
 
@@ -70,7 +64,8 @@ export function GamePage() {
   const pendingLeader = pendingTribute
     ? session.players.find((player) => player.id === pendingTribute.leadPlayerId)
     : null;
-  const rankingLocked = Boolean(pendingRound && pendingTribute);
+  const gameEnded = Boolean(session.rounds[session.rounds.length - 1]?.acePassed);
+  const rankingLocked = Boolean(gameEnded || (pendingRound && pendingTribute));
 
   useEffect(() => {
     const key = 'guandan-master:guide:game:v1';
@@ -82,9 +77,13 @@ export function GamePage() {
   return (
     <section className="space-y-4 lg:space-y-5">
       <div className="rounded-2xl border border-dealer/30 bg-dealer/10 px-4 py-3 text-center text-sm font-medium text-amber-900 dark:text-amber-100">
-        👑 第 {session.rounds.length + 1} 局：
-        {session.playingTeam === 'our' ? ourTeamNames : opponentTeamNames}打{' '}
-        {levelToLabel(playingLevel)}
+        {gameEnded
+          ? `🏁 本场结束：${
+              session.playingTeam === 'our' ? ourTeamNames : opponentTeamNames
+            } 过 A 成功`
+          : `👑 第 ${session.rounds.length + 1} 局：${
+              session.playingTeam === 'our' ? ourTeamNames : opponentTeamNames
+            }打 ${levelToLabel(playingLevel)}`}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:gap-4">
@@ -150,21 +149,27 @@ export function GamePage() {
                 ))
               )}
               {isAntiTributeEnabled(session.houseRules.antiTributePreset) && (
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={pendingReview?.isAntiTribute ?? false}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      if (!checked) {
-                        setPendingAntiTribute(false);
-                        return;
-                      }
-                      openAntiTributeDialog();
-                    }}
-                  />
-                  抗贡（下一局摸牌后确认）
-                </label>
+                <div className="space-y-2 text-sm">
+                  <p className="text-neutral-600 dark:text-neutral-300">上局结果</p>
+                  <label className="inline-flex items-center gap-2 pr-4">
+                    <input
+                      type="radio"
+                      name="pendingAntiTribute"
+                      checked={!pendingReview?.isAntiTribute}
+                      onChange={() => setPendingAntiTribute(false)}
+                    />
+                    未抗贡（默认）
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="pendingAntiTribute"
+                      checked={Boolean(pendingReview?.isAntiTribute)}
+                      onChange={() => openAntiTributeDialog()}
+                    />
+                    抗贡
+                  </label>
+                </div>
               )}
               <button
                 type="button"
@@ -220,6 +225,16 @@ export function GamePage() {
           >
             撤回上一局
           </button>
+
+          {gameEnded && (
+            <button
+              type="button"
+              className="w-full rounded-xl border border-our px-4 py-2 text-sm font-semibold text-our"
+              onClick={() => setShowRestartConfirm(true)}
+            >
+              快速开始新对局
+            </button>
+          )}
         </div>
       </div>
 
@@ -243,6 +258,33 @@ export function GamePage() {
         onConfirm={() => {
           setPendingAntiTribute(true);
           closeAntiTributeDialog();
+        }}
+      />
+      <ConfirmDialog
+        open={showRestartConfirm}
+        title="确认开始新对局？"
+        message="将保留当前玩家与房规，快速重置到开局状态。"
+        confirmLabel="开始新对局"
+        onCancel={() => setShowRestartConfirm(false)}
+        onConfirm={() => {
+          const names: { 东: string; 南: string; 西: string; 北: string } = {
+            东: '',
+            南: '',
+            西: '',
+            北: '',
+          };
+          session.players.forEach((player) => {
+            names[player.position] = player.name;
+          });
+          createSession({
+            names,
+            ourLevel: session.initialOurLevel,
+            opponentLevel: session.initialOpponentLevel,
+            dealerTeam: session.initialDealerTeam,
+            antiTributePreset: session.houseRules.antiTributePreset,
+            aceRequiresDoubleDown: session.houseRules.aceRequiresDoubleDown,
+          });
+          setShowRestartConfirm(false);
         }}
       />
       {showGuide && (

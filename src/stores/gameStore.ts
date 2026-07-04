@@ -182,14 +182,16 @@ export const useGameStore = create<GameState>()(
       confirmRound: () => {
         const state = get();
         if (!state.session) return;
+        const alreadyEnded = state.session.rounds[state.session.rounds.length - 1]?.acePassed;
+        if (alreadyEnded) return;
         const settled = settleRound(state.session, state.roundDraft);
         if (!settled) return;
 
-        const pendingTributeReview = isAntiTributeEnabled(
-          settled.nextSession.houseRules.antiTributePreset,
-        )
-          ? { roundId: settled.roundRecord.id, isAntiTribute: false }
-          : null;
+        const pendingTributeReview =
+          settled.roundRecord.acePassed ||
+          !isAntiTributeEnabled(settled.nextSession.houseRules.antiTributePreset)
+            ? null
+            : { roundId: settled.roundRecord.id, isAntiTribute: false };
         set({
           session: {
             ...settled.nextSession,
@@ -249,7 +251,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'guandan-master:v1',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState: unknown, version) => {
         if (!persistedState || typeof persistedState !== 'object') {
@@ -259,12 +261,16 @@ export const useGameStore = create<GameState>()(
           };
         }
         const current = persistedState as {
-          session?: GameSession | null;
+          session?: (GameSession & { rounds?: Array<GameSession['rounds'][number]> }) | null;
           roundDraft?: { ranks?: Array<string | null> };
         };
         const migratedSession = current.session
           ? {
               ...current.session,
+              rounds: (current.session.rounds ?? []).map((round) => ({
+                ...round,
+                acePassed: version < 3 ? false : round.acePassed ?? false,
+              })),
               pendingTributeReview:
                 version < 2 ? null : current.session.pendingTributeReview ?? null,
             }

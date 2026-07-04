@@ -8,6 +8,13 @@ export function teamLabel(team: Team): string {
   return team === 'our' ? '南北队' : '东西队';
 }
 
+export function teamPlayersLabel(players: Player[], team: Team): string {
+  const names = players
+    .filter((player) => player.team === team)
+    .map((player) => displayName(player));
+  return names.length > 0 ? names.join(' / ') : teamLabel(team);
+}
+
 export function resultTypeLabel(resultType: ResultType): string {
   if (resultType === 'double_down') return '双下';
   if (resultType === 'single_down_opponent') return '单下(+2)';

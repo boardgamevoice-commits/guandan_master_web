@@ -23,6 +23,7 @@ export interface GameRoundRecord {
   ranks: string[];
   resultType: ResultType;
   isAntiTribute: boolean;
+  acePassed: boolean;
   /** 该局打级方级牌（逢人配）快照 */
   currentWildCard: number;
   ourLevelSnapshot: number;

@@ -3,7 +3,7 @@ import { applyLevelChange, calculateLevelChange } from '@/domain/levelEngine';
 import { calculateTribute } from '@/domain/tributeEngine';
 import type { GameRoundRecord, GameSession, Player, Team } from '@/types/game';
 import type { RoundDraft } from '@/types/round';
-import { teamLabel } from '@/utils/format';
+import { teamPlayersLabel } from '@/utils/format';
 
 export interface RoundPreview {
   roundNumber: number;
@@ -15,6 +15,7 @@ export interface RoundPreview {
   nextOpponentLevel: number;
   nextDealer: Team;
   winner: Team;
+  acePassed: boolean;
   aceMessage: string | null;
 }
 
@@ -40,7 +41,7 @@ export function previewRound(session: GameSession, draft: RoundDraft): RoundPrev
   );
 
   const leader = findPlayerById(session.players, tribute.leadPlayerId);
-  const winnerLabel = teamLabel(change.winner);
+  const winnerLabel = `${teamPlayersLabel(session.players, change.winner)}队`;
   const delta = change.winner === 'our' ? change.ourDelta : change.opponentDelta;
   const ace = evaluateAce({
     winner: change.winner,
@@ -65,7 +66,8 @@ export function previewRound(session: GameSession, draft: RoundDraft): RoundPrev
     nextOpponentLevel: nextLevels.opponentLevel,
     nextDealer: leader.team,
     winner: change.winner,
-    aceMessage: ace.message,
+    acePassed: ace.passed,
+    aceMessage: localizeAceMessage(ace.message, session.players),
   };
 }
 
@@ -84,6 +86,7 @@ export function settleRound(
     ranks: [...rankedIds],
     resultType: calculateLevelChange(rankedIds, session.players).resultType,
     isAntiTribute: false,
+    acePassed: preview.acePassed,
     currentWildCard: getCurrentWildCard(session),
     ourLevelSnapshot: preview.nextOurLevel,
     opponentLevelSnapshot: preview.nextOpponentLevel,
@@ -130,6 +133,15 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
   const replayedRounds = rounds.map((round, index) => {
     const change = calculateLevelChange(round.ranks, nextSession.players);
     const nextLevels = applyLevelChange(nextSession.ourLevel, nextSession.opponentLevel, change);
+    const ace = evaluateAce({
+      winner: change.winner,
+      resultType: change.resultType,
+      beforeOurLevel: nextSession.ourLevel,
+      beforeOpponentLevel: nextSession.opponentLevel,
+      afterOurLevel: nextLevels.ourLevel,
+      afterOpponentLevel: nextLevels.opponentLevel,
+      houseRules: nextSession.houseRules,
+    });
     const tribute = calculateTribute(
       round.ranks,
       nextSession.players,
@@ -142,6 +154,7 @@ function replaySessionRounds(session: GameSession, rounds: GameRoundRecord[]): G
       ...round,
       roundNumber: index + 1,
       resultType: change.resultType,
+      acePassed: ace.passed,
       currentWildCard: getCurrentWildCard(nextSession),
       ourLevelSnapshot: nextLevels.ourLevel,
       opponentLevelSnapshot: nextLevels.opponentLevel,
@@ -169,4 +182,11 @@ function findPlayerById(players: Player[], playerId: string): Player {
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player) throw new Error('无效玩家');
   return player;
+}
+
+function localizeAceMessage(message: string | null, players: Player[]): string | null {
+  if (!message) return null;
+  return message
+    .replaceAll('南北队', `${teamPlayersLabel(players, 'our')}队`)
+    .replaceAll('东西队', `${teamPlayersLabel(players, 'opponent')}队`);
 }

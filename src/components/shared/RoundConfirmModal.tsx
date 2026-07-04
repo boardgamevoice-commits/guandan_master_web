@@ -1,6 +1,6 @@
 import { levelToLabel, type GameSession } from '@/types/game';
 import type { RoundPreview } from '@/domain/roundSettlement';
-import { displayName } from '@/utils/format';
+import { displayName, teamPlayersLabel } from '@/utils/format';
 
 interface RoundConfirmModalProps {
   session: GameSession;
@@ -15,6 +15,9 @@ export function RoundConfirmModal({
   onCancel,
   onConfirm,
 }: RoundConfirmModalProps) {
+  const ourTeamNames = teamPlayersLabel(session.players, 'our');
+  const opponentTeamNames = teamPlayersLabel(session.players, 'opponent');
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900">
@@ -41,7 +44,8 @@ export function RoundConfirmModal({
         </div>
 
         <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
-          级数：南北 {levelToLabel(session.ourLevel)} → {levelToLabel(preview.nextOurLevel)}，东西{' '}
+          级数：{ourTeamNames} {levelToLabel(session.ourLevel)} →{' '}
+          {levelToLabel(preview.nextOurLevel)}，{opponentTeamNames}{' '}
           {levelToLabel(session.opponentLevel)} → {levelToLabel(preview.nextOpponentLevel)}
         </p>
 
